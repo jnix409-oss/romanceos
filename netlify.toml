@@ -1,0 +1,29 @@
+# Required environment variables (set in Netlify → Site configuration → Environment variables):
+#   ANTHROPIC_API_KEY       Your Anthropic key (sk-ant-...). Used by the function only; never shipped to the client.
+#   ANTHROPIC_PROXY_SECRET  Server-side shared secret. The function rejects any request whose
+#                           x-proxy-secret header does not match this value.
+#   VITE_PROXY_SECRET       Same value as ANTHROPIC_PROXY_SECRET. Baked into the client build at
+#                           `npm run build` and sent as the x-proxy-secret header on every request.
+#                           WARNING: VITE_-prefixed vars are public in the client bundle — this guard
+#                           only blocks naive direct calls, it is not real authentication.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+
+# Route the app's Anthropic calls to the serverless proxy function.
+# Must come BEFORE the SPA fallback below so it wins.
+[[redirects]]
+  from = "/api/anthropic/*"
+  to = "/.netlify/functions/anthropic/:splat"
+  status = 200
+  force = true
+
+# SPA fallback — serve the built index.html for client-side routes.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
