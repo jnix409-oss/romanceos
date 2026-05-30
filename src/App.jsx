@@ -104,6 +104,92 @@ const GENRE_PRESETS = [
   { id:"custom", label:"Custom", icon:"✦", lanes:null, tropes:null, heat:null, spiceLevel:null, romanceIntensity:null },
 ];
 
+// ── Reader Archetypes (Story Intelligence Layer) ───────────────
+const READER_ARCHETYPES = [
+  { id:"purpose_reader", name:"The Purpose Seeker",
+    matchesPresets:["power_purpose_romance","womens_fiction","faith_purpose_romance"],
+    wants:["personal growth","healing","strong heroine","purpose","emotional depth"],
+    hates:["shallow romance","unearned endings","weak heroines"],
+    emotionalDrivers:["hope","inspiration","healing"],
+    favoriteTropes:["Finding Herself","Leadership Crisis","Mentor Relationship","Second Chance"],
+    requiredPayoff:"Heroine becomes more powerful than she started." },
+  { id:"soft_romance_reader", name:"The Comfort Romance Reader",
+    matchesPresets:["soft_black_romance"],
+    wants:["emotional intimacy","healthy love","community","warmth"],
+    hates:["excessive drama","toxic heroes"],
+    emotionalDrivers:["comfort","connection","joy"],
+    favoriteTropes:["Friends to Lovers","Second Chance","Single Parent","Returning Home"],
+    requiredPayoff:"Readers must believe this couple will last." },
+  { id:"luxury_romance_reader", name:"The Aspirational Romance Reader",
+    matchesPresets:["black_billionaire_romance","luxury_romance"],
+    wants:["wealth","success","luxury lifestyle","power couples"],
+    hates:["boring settings","small stakes"],
+    emotionalDrivers:["fantasy","desire","aspiration"],
+    favoriteTropes:["Billionaire","CEO","Private Island","Public Image Crisis"],
+    requiredPayoff:"Reader gets both fantasy and emotional satisfaction." },
+  { id:"spicy_romance_reader", name:"The Chemistry Chaser",
+    matchesPresets:["erotic_urban_romance","sexy_contemporary_black_romance"],
+    wants:["chemistry","attraction","tension","relationship progression"],
+    hates:["flat chemistry","slow emotional payoff"],
+    emotionalDrivers:["desire","anticipation","passion"],
+    favoriteTropes:["Forbidden Love","Only One Bed","Secret Relationship","Possessive Hero"],
+    requiredPayoff:"The relationship must feel earned and intensely satisfying." },
+  { id:"urban_drama_reader", name:"The Drama Addict",
+    matchesPresets:["urban_drama_romance"],
+    wants:["betrayal","loyalty","conflict","high emotions"],
+    hates:["low tension","predictable relationships"],
+    emotionalDrivers:["anger","shock","satisfaction"],
+    favoriteTropes:["Dangerous Ex","Ride or Die","Loyalty Test","Power Couple"],
+    requiredPayoff:"Someone must choose loyalty over selfishness." },
+  { id:"street_lit_reader", name:"The Survival Reader",
+    matchesPresets:["street_lit","kingpin_romance"],
+    wants:["power","money","danger","betrayal","street strategy"],
+    hates:["soft conflicts","unrealistic consequences"],
+    emotionalDrivers:["fear","revenge","power"],
+    favoriteTropes:["The Plug","Street to Legit","Protect the Family","Loyalty Betrayal"],
+    requiredPayoff:"Choices must have consequences." },
+  { id:"crime_saga_reader", name:"The Empire Builder",
+    matchesPresets:["crime_family_saga"],
+    wants:["legacy","family politics","succession battles","power structures"],
+    hates:["small stakes","weak villains"],
+    emotionalDrivers:["power","legacy","control"],
+    favoriteTropes:["Family Empire","Succession War","Hidden Heir","Family Betrayal"],
+    requiredPayoff:"The family structure must change permanently." },
+  { id:"mystery_reader", name:"The Puzzle Solver",
+    matchesPresets:["black_mystery"],
+    wants:["clues","investigation","twists","satisfying reveals"],
+    hates:["plot holes","random endings"],
+    emotionalDrivers:["curiosity","suspense","surprise"],
+    favoriteTropes:["Cold Case","Missing Person","Hidden Witness","Wrong Suspect"],
+    requiredPayoff:"The mystery must be solved fairly." },
+  { id:"thriller_reader", name:"The Edge-of-Seat Reader",
+    matchesPresets:["political_thriller","corporate_thriller","romantic_suspense"],
+    wants:["danger","conspiracies","twists","high stakes"],
+    hates:["slow pacing","obvious villains"],
+    emotionalDrivers:["fear","urgency","shock"],
+    favoriteTropes:["Conspiracy","The Mole","Government Coverup","Whistleblower"],
+    requiredPayoff:"Truth must be revealed at a cost." },
+  { id:"faith_reader", name:"The Faith-Focused Reader",
+    matchesPresets:["faith_purpose_romance","faith_family_saga"],
+    wants:["hope","faith growth","redemption","purpose"],
+    hates:["cynical endings","performative faith"],
+    emotionalDrivers:["hope","peace","inspiration"],
+    favoriteTropes:["Redemption Arc","Unexpected Calling","Kingdom Partnership","Waiting on God"],
+    requiredPayoff:"Character must experience meaningful spiritual growth." },
+  { id:"womens_fiction_reader", name:"The Reinvention Reader",
+    matchesPresets:["womens_fiction"],
+    wants:["growth","identity","friendship","realistic life transitions"],
+    hates:["one-dimensional characters","easy solutions"],
+    emotionalDrivers:["hope","reflection","empowerment"],
+    favoriteTropes:["Midlife Reinvention","Career Collapse","Starting Over","Finding Herself"],
+    requiredPayoff:"Heroine must evolve into a fuller version of herself." },
+];
+
+function detectReaderArchetypes(presetId) {
+  const matches = READER_ARCHETYPES.filter(a => a.matchesPresets.includes(presetId || "custom"));
+  return { primary: matches[0] || null, secondary: matches[1] || null };
+}
+
 const TROPES_DATABASE = [
   // ── ROMANCE CORE ──
   { name:"Enemies to Lovers", category:"Romance Core", primaryGenre:"Romance", heatLevel:3, conflictLevel:4, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Forced Proximity","Fake Relationship","Forbidden Love"] },
@@ -1565,6 +1651,38 @@ async function generateBlueprint(opts) {
           familyInfluence, spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng, universe } = opts;
   const norm = normalize(laneVals);
   const blend = LANES.filter(l=>norm[l.id]>0).map(l=>l.label+": "+norm[l.id]+"%").join(", ");
+
+  // ── Registry avoidance (uniqueness guardrail) — appended to call1 + call2 ──
+  const reg = loadGlobalRegistry();
+  const registryAvoidance = [
+    (reg.characterNames||[]).length > 0
+      ? "CHARACTER NAMES ALREADY IN USE — DO NOT REUSE OR CLOSELY VARY THESE: " + reg.characterNames.join(", ")
+      : "",
+    (reg.organizationNames||[]).length > 0
+      ? "STORY TITLES ALREADY IN USE — GENERATE A COMPLETELY DIFFERENT TITLE: " + reg.organizationNames.join(", ")
+      : "",
+    (reg.plotFingerprints||[]).length > 0
+      ? "EXISTING PLOT FINGERPRINTS — NEW PREMISE MUST BE SUBSTANTIALLY DIFFERENT FROM ALL OF THESE: " + reg.plotFingerprints.slice(0, 8).join(" | ")
+      : "",
+  ].filter(Boolean).join("\n");
+
+  // ── Reader archetype detection (Story Intelligence Layer) — call2 only ──
+  const detectedArchetypes = detectReaderArchetypes(opts.selectedPresetId);
+  const primaryArch = detectedArchetypes.primary;
+  const secondaryArch = detectedArchetypes.secondary;
+  const archetypeCtx = primaryArch ? [
+    "",
+    "PRIMARY READER ARCHETYPE: " + primaryArch.name,
+    "They want: " + primaryArch.wants.join(", "),
+    "They hate: " + primaryArch.hates.join(", "),
+    "Required payoff: " + primaryArch.requiredPayoff,
+    secondaryArch
+      ? "SECONDARY READER: " + secondaryArch.name +
+        " · wants: " + secondaryArch.wants.slice(0,3).join(", ") +
+        " · payoff: " + secondaryArch.requiredPayoff
+      : "",
+    "Design every chapter to honor the primary reader's required payoff.",
+  ].filter(Boolean).join("\n") : "";
   const heatLabel = HEAT[heat-1].label;
 
   const heroineArchCtx = heroineArch
@@ -1822,7 +1940,8 @@ async function generateBlueprint(opts) {
     "readerPromise: 1 sentence, max 18 words",
     "heroine: object with keys name (string), age (number or short string), occupation (max 8 words), wound (1 sentence max 14 words), externalGoal (1 sentence max 14 words)",
     "hero: object with keys name (string), age (number or short string), occupation (max 8 words), wound (1 sentence max 14 words), externalGoal (1 sentence max 14 words)",
-    "openingLine: 1 evocative opening sentence, max 25 words"
+    "openingLine: 1 evocative opening sentence, max 25 words",
+    registryAvoidance
   ].filter(Boolean).join("\n");
 
   const core = await apiCallJSON(SYS_STORY, call1, 2200);
@@ -1852,6 +1971,8 @@ async function generateBlueprint(opts) {
     urbanDramaCtx,
     eroticCtx,
     streetLitCtx,
+    archetypeCtx,
+    registryAvoidance,
     "",
     "Return a compact JSON object. KEEP EVERY VALUE SHORT — no long descriptions.",
     "Use these exact keys with these length limits:",
@@ -1875,7 +1996,13 @@ async function generateBlueprint(opts) {
     "familiarElements: array of exactly 3 short strings — recognizable market patterns this story carries (max 8 words each)",
     "uniqueDifferentiator: 2 sentences max — what makes this story stand out in its market",
     "emotionalPayoff: 1 sentence max — the catharsis the reader is paying for",
-    "adaptationPotential: 2 sentences max — audio narration fit, streaming/film potential, series anchor capability"
+    "adaptationPotential: 2 sentences max — audio narration fit, streaming/film potential, series anchor capability",
+    "primaryReader: object with keys archetypeId (string — use the id from READER_ARCHETYPES), archetypeName (string), requiredPayoff (string — copy exactly from archetype)",
+    "secondaryReader: same shape as primaryReader or null",
+    "readerSatisfactionForecast: integer 0-100 — realistic projection of how satisfied this archetype will be with this specific story premise",
+    "potentialRisks: array of 3-5 strings — each max 18 words — specific ways this story could LOSE its primary reader (be concrete: which chapter types, which character behaviors, which pacing choices)",
+    "readerExpectations: array of 4-6 strings — each max 18 words — what this reader DEMANDS from every single chapter (not just the book overall)",
+    "storyDNA: object with keys: genreBlend (max 8 words — top 2-3 lanes as a phrase), readerPromise (copy from core.readerPromise), tone (max 8 words), heat (integer — the heat level), heroineWound (max 14 words), heroWound (max 14 words), centralConflict (max 14 words), relationshipObstacle (max 14 words)"
   ].filter(Boolean).join("\n");
 
   const struct = await apiCallJSON(SYS_STORY, call2, 3500);
@@ -2084,6 +2211,104 @@ function SimilarityBadge({ status, score, mostSimilar, compact }) {
   );
 }
 
+// ── Story Health Analysis (Editor Mode) ───────────────────────
+async function analyzeStoryHealth(story, outline, bible, chapterProse, chapterSummaries) {
+  const writtenChapters = Object.keys(chapterProse)
+    .map(Number).filter(n => chapterProse[n]).sort((a,b) => a-b);
+
+  if (writtenChapters.length < 1)
+    throw new Error("No chapters written yet.");
+
+  const primaryArch = story.primaryReader
+    ? READER_ARCHETYPES.find(a => a.id === story.primaryReader.archetypeId)
+    : null;
+
+  // Prose sampling: first chapter + last 2 chapters (capped at 2500 chars each)
+  const sampleNums = [...new Set([
+    writtenChapters[0],
+    writtenChapters[writtenChapters.length - 2],
+    writtenChapters[writtenChapters.length - 1],
+  ])].filter(Boolean);
+
+  const proseSamples = sampleNums
+    .filter(n => chapterProse[n])
+    .map(n =>
+      `=== CH${n} PROSE SAMPLE ===\n${chapterProse[n].slice(0, 2500)}\n=== END ===`
+    ).join("\n\n");
+
+  const chapterDigest = writtenChapters.map(n => {
+    const s = chapterSummaries[n];
+    const ch = (outline?.chapters || [])[n - 1] || {};
+    const entry = (bible?.chapters || []).find(c => c.number === n) || {};
+    return [
+      `Ch${n} [${ch.arcStage||""}·${ch.pov||""}POV]:`,
+      s?.summary || "(no summary)",
+      entry.unresolvedThreads?.length
+        ? "Open: " + entry.unresolvedThreads.join("; ") : "",
+      entry.characterChanges?.length
+        ? "Shifts: " + entry.characterChanges.join("; ") : "",
+    ].filter(Boolean).join(" | ");
+  }).join("\n");
+
+  const bibleSummary = bible ? [
+    "Relationship now: " + (bible.relationship?.currentState || "unknown"),
+    "Open mysteries: " + (bible.plot?.mysteries||[]).filter(m=>m.status!=="resolved").map(m=>m.name).join(", "),
+    "Active secrets: " + (bible.plot?.secrets||[]).filter(s=>!s.revealedIn).length,
+    "Subplots: " + (bible.plot?.subplots||[]).join(", "),
+  ].join(" · ") : "";
+
+  const sys = [
+    "You are a senior developmental editor for commercial Black fiction.",
+    "You perform story-level editorial analysis — not line editing.",
+    "You find where the story works, where it risks losing readers, and exactly how to fix it.",
+    "Your analysis is honest, specific, and actionable — not encouraging.",
+    "Output strict JSON only. Start with { end with }. No prose, no markdown."
+  ].join("\n");
+
+  const user = [
+    `BOOK: ${story.title}`,
+    story.storyDNA ? `DNA: ${story.storyDNA.genreBlend} · ${story.storyDNA.tone} · Heat ${story.storyDNA.heat}/5` : "",
+    `PROMISE: ${story.readerPromise || ""}`,
+    primaryArch ? `PRIMARY READER: ${primaryArch.name}` : "",
+    primaryArch ? `THEY WANT: ${primaryArch.wants.join(", ")}` : "",
+    primaryArch ? `THEY HATE: ${primaryArch.hates.join(", ")}` : "",
+    primaryArch ? `REQUIRED PAYOFF: ${primaryArch.requiredPayoff}` : "",
+    story.readerExpectations?.length
+      ? `CHAPTER EXPECTATIONS: ${story.readerExpectations.join("; ")}` : "",
+    "",
+    `CHAPTERS PLANNED: ${(outline?.chapters||[]).length} | WRITTEN: ${writtenChapters.length}`,
+    `BIBLE: ${bibleSummary}`,
+    "",
+    "=== CHAPTER DIGEST ===",
+    chapterDigest,
+    "",
+    proseSamples ? "=== PROSE SAMPLES ===" : "",
+    proseSamples || "",
+    "",
+    "Return a compact JSON with these exact keys:",
+    "",
+    "overallHealth: { score(1-10), verdict(max 8 words), summary(max 24 words) }",
+    "",
+    "sagPoints: array of { chapters(number[]), issue(max 18 words), severity('low'|'medium'|'high'), fix(max 20 words) }",
+    "",
+    "dropoutRisk: array of { afterChapter(number), reason(max 18 words), riskLevel('low'|'medium'|'high'), fix(max 18 words) }",
+    "",
+    "characterAudit: array of { name, role('heroine'|'hero'|'supporting'), developmentScore(1-10), chaptersActive(integer), issue(max 18 words), suggestion(max 20 words) }",
+    "",
+    "subplotRanking: array of { subplot(max 12 words), strength(1-10), momentum('building'|'stalled'|'resolved'|'dormant'), lastActiveChapter(number) }",
+    "",
+    "promiseFulfillment: { score(1-10), onTrack(boolean), gaps(array of 2-4 strings max 16 words each) }",
+    "",
+    "readerArchetypeAlignment: { score(1-10), strengths(array of 2-3 strings max 14 words each), risks(array of 2-3 strings max 14 words each) }",
+    "",
+    "readabilityAnalysis: { overallScore(1-10), pacing(1-10), dialogue(1-10), interiority(1-10), tension(1-10), voiceConsistency(1-10), archetypeReadabilityNotes(max 24 words) }",
+    "",
+    "editorNotes: array of exactly 5 objects: { priority('P1'|'P2'|'P3'), note(max 22 words — specific and actionable), chapter(number or null if story-wide) }",
+  ].filter(Boolean).join("\n");
+
+  return await apiCallJSON(sys, user, 4500);
+}
+
 function AlternativesPanel({ itemType, currentItem, alternatives, loading, onGenerate, onSelect, onClose }) {
   return (
     <div style={{ marginTop:14, padding:"18px 20px", background:C.card, border:"1px solid "+C.gold, borderRadius:10 }}>
@@ -2187,6 +2412,11 @@ async function generateStoryBible(story, outline) {
 // Generate a continuity report for a chapter that was just written.
 // Returns both diagnostics AND structured bible updates to merge.
 async function generateContinuityReport(story, bible, chapterNum, chapterProse, outline) {
+  const primaryArch = story.primaryReader
+    ? READER_ARCHETYPES.find(a => a.id === story.primaryReader.archetypeId)
+    : null;
+  const readerExpectations = story.readerExpectations || [];
+  const readerPromise = story.readerPromise || "";
   const ch = (outline.chapters||[])[chapterNum-1] || {};
   const prevChapters = (bible.chapters||[]).slice(0,chapterNum-1);
   const prevSummary = prevChapters.map(c=>"Ch"+c.number+": "+(c.majorEvents||[]).join("; ")+(c.unresolvedThreads&&c.unresolvedThreads.length?" UNRESOLVED: "+c.unresolvedThreads.join("; "):"")).join(" || ") || "(first chapter)";
@@ -2221,6 +2451,7 @@ async function generateContinuityReport(story, bible, chapterNum, chapterProse, 
     "timelineConsistency: object with same shape — flag any sequence-of-events problems",
     "relationshipConsistency: object with same shape — flag any unearned intimacy jumps or arc-state contradictions",
     "plotConsistency: object with same shape — flag any forgotten threads, mishandled clues, contradicted setups",
+    "readerPromiseFulfillment: object with status ('pass'|'warning'|'issue') and notes (array of 0-3 strings each max 18 words). Evaluate: (1) Did this chapter advance the reader toward the required payoff: " + (primaryArch ? '"' + primaryArch.requiredPayoff + '"' : "the story promise") + "? (2) Did it deliver at least one reader expectation: " + (readerExpectations.length ? readerExpectations.slice(0,3).join("; ") : "per the story promise") + "? (3) Did it avoid the primary reader's hates: " + (primaryArch ? primaryArch.hates.join(", ") : "weak character choices") + "? Issue if chapter actively works against the payoff. Warning if payoff not advanced. Pass if at least one expectation delivered.",
     "chapterEntry: object with keys number ("+chapterNum+"), pov (string), purpose (max 14 words), majorEvents (array of 2-4 short strings each max 14 words), characterChanges (array of 0-3 short strings each max 14 words — internal shifts that affect future chapters), unresolvedThreads (array of 1-3 short strings each max 14 words — what carries forward)",
     "relationshipUpdate: object with newCurrentState (max 12 words — where the relationship is at the end of this chapter) and newMilestone (object with chapter ("+chapterNum+") and event (max 14 words)) or null if no milestone reached",
     "mysteriesUpdate: array of objects each with name (existing mystery name) and newStatus ('open'|'closing'|'resolved')",
@@ -2231,6 +2462,7 @@ async function generateContinuityReport(story, bible, chapterNum, chapterProse, 
     "  'PASS'    — chapter is fully consistent with the Story Bible. All four checks are 'pass'. Next chapter can be drafted safely.",
     "  'WARNING' — minor inconsistencies that should be patched but do not break the story. One or more checks are 'warning' but none is 'issue'.",
     "  'FAIL'    — major contradiction, broken character, broken timeline, or destroyed plot thread. One or more checks are 'issue'. Subsequent chapters cannot be drafted until resolved.",
+    "  If readerPromiseFulfillment.status is 'issue', the overall status must be at minimum 'WARNING'.",
     "",
     "Include the 'status' field on the returned JSON.",
     "",
@@ -3130,7 +3362,7 @@ function freshStoryRecord(id) {
     setting:null, city:null, family:null, intensity:3, externalConflict:null,
     relationshipObstacle:null, familyInfluence:7, spiceLevel:2, romanceIntensity:DEFAULT_INTENSITY,
     eroticRomance:{...DEFAULT_EROTIC}, streetLitEng:{...DEFAULT_STREETLIT}, suspenseEng:{...DEFAULT_SUSPENSE},
-    blueprint:null, outline:null, bible:null, bibleLocked:false, chapterProse:{}, chapterReports:{},
+    blueprint:null, outline:null, bible:null, bibleLocked:false, storyDNALocked:false, chapterProse:{}, chapterReports:{},
     chapterSummaries:{}, chapterSceneCards:{}, sceneProse:{}, sceneSummaries:{}, sceneLocked:{}, bookPackage:null
   };
 }
@@ -4373,7 +4605,85 @@ function BibleSection({ title, icon, children, defaultOpen=false }) {
   );
 }
 
-function StoryBibleViewer({ bible }) {
+function PlotThreadTracker({ bible, currentChapterCount, onAddManualThread }) {
+  const [newThread, setNewThread] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  if (!bible) return null;
+
+  const threads = [
+    ...(bible.plot?.mysteries || []).map(m => ({ name: m.name, type:"Mystery", status: m.status || "open" })),
+    ...(bible.plot?.secrets || []).filter(s => !s.revealedIn).map(s => ({ name: s.owner + ": " + s.secret, type:"Secret", status:"open" })),
+    ...(bible.plot?.subplots || []).map(s => ({ name: typeof s === "string" ? s : s.name || s, type:"Subplot", status:"open" })),
+    ...(bible.plot?.manualThreads || []).map(t => ({ name: t.name, type:"Manual", status: t.status || "open" })),
+  ];
+
+  const chapterEntries = bible.chapters || [];
+  threads.forEach(thread => {
+    let lastSeen = 0;
+    chapterEntries.forEach(ch => {
+      const allText = [ ...(ch.unresolvedThreads || []), ...(ch.majorEvents || []) ].join(" ").toLowerCase();
+      if (allText.includes(thread.name.toLowerCase().slice(0, 15))) {
+        lastSeen = Math.max(lastSeen, ch.number || 0);
+      }
+    });
+    thread.lastActiveChapter = lastSeen;
+    const chaptersSince = currentChapterCount - lastSeen;
+    thread.dormant = (thread.status !== "resolved" && lastSeen > 0 && chaptersSince >= 3);
+  });
+
+  const TYPE_COLORS = { Mystery: "#4888C8", Secret: "#9F7AEA", Subplot: "#2D8B7A", Manual: "#B8841C" };
+  const STATUS_COLORS = { open: "#D88830", closing: "#2D8B7A", resolved: "#6B665E", issue: "#B8342D" };
+
+  return (
+    <div style={{ marginTop:14 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+        <div style={{ color:C.gold, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>
+          🧵 Plot Thread Tracker · {threads.length} threads
+        </div>
+        <button onClick={() => setAdding(!adding)}
+          style={{ padding:"3px 10px", background:"transparent", color:C.amber, border:"1px solid "+C.amber, borderRadius:4, fontSize:10, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+          + Add Thread
+        </button>
+      </div>
+
+      {adding && (
+        <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+          <input value={newThread} onChange={e => setNewThread(e.target.value)}
+            placeholder="Thread name or description..."
+            style={{ flex:1, padding:"6px 10px", background:C.card, color:C.text, border:"1px solid "+C.border, borderRadius:6, fontSize:12, fontFamily:"Nunito, sans-serif" }}/>
+          <button onClick={() => { if (!newThread.trim()) return; onAddManualThread && onAddManualThread(newThread.trim()); setNewThread(""); setAdding(false); }}
+            style={{ padding:"6px 12px", background:C.gold, color:C.bg, border:"none", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+            Add
+          </button>
+        </div>
+      )}
+
+      <div style={{ display:"grid", gap:6 }}>
+        {threads.length === 0 && (
+          <div style={{ color:C.muted, fontSize:12, fontStyle:"italic", padding:"10px 0" }}>
+            No plot threads detected yet. Initialize the Story Bible to auto-populate.
+          </div>
+        )}
+        {threads.map((t, i) => (
+          <div key={i} style={{ padding:"8px 12px", background:C.bg, border:"1px solid " + (t.dormant ? "#B8342D" : C.borderLight), borderRadius:6, borderLeft: "3px solid " + TYPE_COLORS[t.type] }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", flexWrap:"wrap", gap:6 }}>
+              <span style={{ color:C.text, fontSize:12, fontWeight:600, flex:1, minWidth:120 }}>{t.name}</span>
+              <div style={{ display:"flex", gap:5, alignItems:"center", flexShrink:0 }}>
+                <span style={{ padding:"1px 6px", background:TYPE_COLORS[t.type]+"22", border:"1px solid "+TYPE_COLORS[t.type], borderRadius:8, fontSize:9, color:TYPE_COLORS[t.type], fontWeight:700 }}>{t.type}</span>
+                <span style={{ padding:"1px 6px", background:STATUS_COLORS[t.status]+"22", border:"1px solid "+STATUS_COLORS[t.status], borderRadius:8, fontSize:9, color:STATUS_COLORS[t.status], fontWeight:700, textTransform:"uppercase" }}>{t.status}</span>
+                {t.lastActiveChapter > 0 && (<span style={{ color:C.muted, fontSize:10 }}>Ch {t.lastActiveChapter}</span>)}
+                {t.dormant && (<span style={{ color:"#B8342D", fontSize:10, fontWeight:700 }}>⚠ Dormant</span>)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StoryBibleViewer({ bible, currentChapterCount, onAddManualThread }) {
   if (!bible) return null;
   const w = bible.world || {};
   const chars = bible.characters || [];
@@ -4576,6 +4886,9 @@ function StoryBibleViewer({ bible }) {
           </div>
         </BibleSection>
       )}
+      <BibleSection title="Plot Thread Tracker" icon="🧵" defaultOpen={true}>
+        <PlotThreadTracker bible={bible} currentChapterCount={currentChapterCount} onAddManualThread={onAddManualThread}/>
+      </BibleSection>
     </div>
   );
 }
@@ -4729,6 +5042,7 @@ function ContinuityReportCard({ report, onApplyPatch, onAcknowledgePatch, onMark
         <ContinuityRow label="Timeline Consistency" status={(report.timelineConsistency||{}).status} notes={(report.timelineConsistency||{}).notes}/>
         <ContinuityRow label="Relationship Consistency" status={(report.relationshipConsistency||{}).status} notes={(report.relationshipConsistency||{}).notes}/>
         <ContinuityRow label="Plot Consistency" status={(report.plotConsistency||{}).status} notes={(report.plotConsistency||{}).notes}/>
+        <ContinuityRow label="Reader Promise Fulfillment" status={(report.readerPromiseFulfillment||{}).status} notes={(report.readerPromiseFulfillment||{}).notes}/>
         {report.relationshipUpdate && report.relationshipUpdate.newCurrentState && (
           <div style={{ marginTop:10, paddingTop:10, borderTop:"1px solid "+C.faint, color:C.muted, fontSize:11, lineHeight:1.5 }}>
             <span style={{ color:C.amber, fontWeight:600 }}>Bible updated: </span>
@@ -5802,6 +6116,17 @@ function ChapterBuilder({ story, universe, chapterState }) {
     finally { setWritingBatch(null); }
   }, [story, outline, bible, setSceneProse, writingBatch]);
 
+  // Story Intelligence: add a manual plot thread to the bible
+  const addManualThread = useCallback((name) => {
+    setBible(prev => {
+      if (!prev) return prev;
+      const plot = { ...(prev.plot||{}) };
+      plot.manualThreads = [...(plot.manualThreads||[]), { name, status:"open" }];
+      return { ...prev, plot };
+    });
+  }, [setBible]);
+  const writtenChapterCount = Object.keys(chapterProse).filter(k=>chapterProse[k]).length;
+
   const writeChapter = useCallback(async (n) => {
     setWritingCh(n); setErr("");
     try {
@@ -6149,7 +6474,7 @@ function ChapterBuilder({ story, universe, chapterState }) {
 
       {err && <div style={{ color:"#B8342D", fontSize:12, marginBottom:12, padding:"8px 12px", background:"#FBE9E7", border:"1px solid #B8342D", borderRadius:6 }}>⚠ {err}</div>}
 
-      {bible && bibleViewerOpen && <StoryBibleViewer bible={bible}/>}
+      {bible && bibleViewerOpen && <StoryBibleViewer bible={bible} currentChapterCount={writtenChapterCount} onAddManualThread={addManualThread}/>}
 
       {outline && outline.chapters && (
         <div style={{ marginTop:bible?22:0 }}>
@@ -6560,12 +6885,37 @@ function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activ
         <div style={{ color:C.gold, fontSize:11, letterSpacing:2.5, textTransform:"uppercase", fontWeight:700, marginBottom:8 }}>
           The Blueprint
         </div>
-        <div style={{ fontFamily:"Cormorant Garamond, serif", color:C.text, fontSize:38, fontWeight:700, lineHeight:1.15, marginBottom:10 }}>
-          {story.title}
+        <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap", marginBottom:10 }}>
+          <div style={{ fontFamily:"Cormorant Garamond, serif", color:C.text, fontSize:38, fontWeight:700, lineHeight:1.15 }}>
+            {story.title}
+          </div>
+          {story.storyDNA && (
+            <span style={{ padding:"3px 10px", background:C.glow, border:"1px solid "+C.gold, borderRadius:12,
+                           color:C.gold, fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>🔒 Story DNA Locked</span>
+          )}
         </div>
         <div style={{ color:C.amber, fontFamily:"Cormorant Garamond, serif", fontSize:20, fontStyle:"italic", marginBottom:18 }}>
           {story.tagline}
         </div>
+        {story.storyDNA && (
+          <div style={{ background:C.manuscript, borderLeft:"3px solid "+C.gold, borderRadius:6, padding:"12px 16px", marginBottom:18 }}>
+            <div style={{ color:C.gold, fontSize:10, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:8 }}>Story DNA</div>
+            {[
+              ["Genre Blend", story.storyDNA.genreBlend],
+              ["Tone", story.storyDNA.tone],
+              ["Heat", (story.storyDNA.heat!=null ? story.storyDNA.heat+"/5" : null)],
+              ["Heroine", story.storyDNA.heroineWound],
+              ["Hero", story.storyDNA.heroWound],
+              ["Conflict", story.storyDNA.centralConflict],
+              ["Obstacle", story.storyDNA.relationshipObstacle],
+            ].filter(([,v])=>v).map(([label,val])=>(
+              <div key={label} style={{ display:"flex", gap:10, fontSize:11, marginBottom:3, lineHeight:1.4 }}>
+                <span style={{ color:C.muted, minWidth:86 }}>{label}</span>
+                <span style={{ color:C.text }}>· {val}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <InfoBlock label="The Hook">{story.hook}</InfoBlock>
         <InfoBlock label="Reader Promise">{story.readerPromise}</InfoBlock>
       </div>
@@ -6588,6 +6938,43 @@ function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activ
               <div style={{ color:C.muted, fontSize:12, marginTop:3 }}>{s.purpose}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {story.primaryReader && (
+        <div style={{ marginTop:20, padding:"20px 22px", background:C.surface, border:"1px solid "+C.border, borderRadius:12 }}>
+          <div style={{ color:C.gold, fontSize:11, letterSpacing:2, textTransform:"uppercase", fontWeight:700, marginBottom:12 }}>
+            Reader Archetypes
+          </div>
+          <div style={{ color:C.text, fontSize:13, marginBottom:6 }}>
+            <span style={{ color:C.amber, fontWeight:700 }}>Primary:</span> {story.primaryReader.archetypeName} — {story.primaryReader.requiredPayoff}
+          </div>
+          {story.secondaryReader && (
+            <div style={{ color:C.text, fontSize:13, marginBottom:6 }}>
+              <span style={{ color:C.amber, fontWeight:700 }}>Secondary:</span> {story.secondaryReader.archetypeName} — {story.secondaryReader.requiredPayoff}
+            </div>
+          )}
+          {story.readerSatisfactionForecast != null && (
+            <div style={{ color:C.gold, fontFamily:"Cormorant Garamond, serif", fontSize:18, fontWeight:700, margin:"8px 0 12px" }}>
+              {story.readerSatisfactionForecast}% satisfaction forecast
+            </div>
+          )}
+          {story.potentialRisks && story.potentialRisks.length > 0 && (
+            <div style={{ marginBottom:10 }}>
+              <div style={{ color:"#B07A1F", fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:5 }}>Potential Risks</div>
+              {story.potentialRisks.map((r,i)=>(
+                <div key={i} style={{ padding:"4px 10px", background:C.warningBg, border:"1px solid #B07A1F", borderRadius:5, color:C.warningText, fontSize:11, marginBottom:4 }}>⚠ {r}</div>
+              ))}
+            </div>
+          )}
+          {story.readerExpectations && story.readerExpectations.length > 0 && (
+            <div>
+              <div style={{ color:C.gold, fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:5 }}>Every Chapter Must Deliver</div>
+              {story.readerExpectations.map((e,i)=>(
+                <div key={i} style={{ color:C.text, fontSize:11, marginBottom:3 }}>✓ {e}</div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -7044,6 +7431,311 @@ function UniverseBuilder({ universes, onCreate, onOpen, onDelete }) {
 
 // ── Main App ──────────────────────────────────────────────────
 
+// ── Editor Mode Dashboard (Story Intelligence Layer) ──────────
+function EditorModeDashboard({ story, outline, bible, chapterProse,
+                               chapterSummaries, report, analyzing,
+                               timestamp, error, onRunAnalysis,
+                               onAddManualThread }) {
+
+  const writtenCount = Object.values(chapterProse).filter(Boolean).length;
+  const scoreColor = (s) => s >= 8 ? "#2D8B7A" : s >= 6 ? "#B07A1F" : "#B8342D";
+
+  const ScoreDimension = ({ label, value }) => (
+    <div style={{ marginBottom:8 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+        <span style={{ color:C.muted, fontSize:11 }}>{label}</span>
+        <span style={{ color:scoreColor(value), fontWeight:700, fontSize:12 }}>{value}/10</span>
+      </div>
+      <div style={{ height:5, background:C.faint, borderRadius:3, overflow:"hidden" }}>
+        <div style={{ width:(value/10*100)+"%", height:"100%", background:scoreColor(value), borderRadius:3, transition:"width 0.5s" }}/>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:14, marginBottom:24 }}>
+        <div>
+          <div style={{ color:C.gold, fontSize:11, letterSpacing:2, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>
+            Editor Mode · Story Analysis
+          </div>
+          <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:26, fontWeight:600 }}>
+            {story?.title}
+          </div>
+          {timestamp && (
+            <div style={{ color:C.muted, fontSize:11, marginTop:4 }}>
+              Last analyzed: {new Date(timestamp).toLocaleString()}
+            </div>
+          )}
+        </div>
+        <button onClick={onRunAnalysis} disabled={analyzing || writtenCount < 1}
+          style={{ padding:"10px 20px",
+                   background: analyzing||writtenCount<1 ? C.faint : "linear-gradient(135deg,"+C.gold+","+C.amber+")",
+                   color: analyzing||writtenCount<1 ? C.muted : C.bg,
+                   border:"none", borderRadius:8, fontWeight:700, fontSize:13,
+                   cursor: analyzing||writtenCount<1 ? "not-allowed" : "pointer", fontFamily:"Nunito, sans-serif" }}>
+          {analyzing ? `Analyzing ${writtenCount} chapters...` : report ? "↺ Re-run Analysis" : "⚡ Run Full Story Analysis"}
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ padding:"10px 14px", background:"#FBE9E7", border:"1px solid #B8342D", borderRadius:6, color:"#B8342D", fontSize:12, marginBottom:14 }}>
+          ⚠ {error}
+        </div>
+      )}
+
+      {!report && !analyzing && (
+        <div style={{ padding:"24px 28px", background:C.card, border:"1px dashed "+C.borderLight, borderRadius:12, marginBottom:22 }}>
+          <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:20, fontWeight:600, marginBottom:8 }}>
+            Writer's Room Analysis
+          </div>
+          <div style={{ color:C.muted, fontSize:13, lineHeight:1.7, marginBottom:14 }}>
+            When you run the analysis across your {writtenCount} written chapter{writtenCount===1?"":"s"}, you'll get:
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))", gap:8 }}>
+            {[
+              ["📉","Story Sag Map","Where momentum dies"],
+              ["🚪","Dropout Risk","Where readers quit"],
+              ["👤","Character Audit","Who's underdeveloped"],
+              ["🧵","Subplot Rankings","What's working"],
+              ["📖","Promise Fulfillment","Are you on track"],
+              ["🎯","Archetype Alignment","Serving your reader"],
+              ["📊","Readability Score","By 6 dimensions"],
+              ["✏️","5 Editor Notes","Prioritized fixes"],
+            ].map(([icon, label, desc]) => (
+              <div key={label} style={{ padding:"10px 12px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6 }}>
+                <div style={{ fontSize:18, marginBottom:4 }}>{icon}</div>
+                <div style={{ color:C.text, fontSize:12, fontWeight:600 }}>{label}</div>
+                <div style={{ color:C.muted, fontSize:10 }}>{desc}</div>
+              </div>
+            ))}
+          </div>
+          {writtenCount < 3 && (
+            <div style={{ marginTop:14, color:C.amber, fontSize:11 }}>
+              ⚡ Write at least 3 chapters for a meaningful analysis. Currently: {writtenCount} written.
+            </div>
+          )}
+        </div>
+      )}
+
+      {report && (
+        <div style={{ display:"grid", gap:16 }}>
+
+          {/* A — STORY HEALTH */}
+          <div style={{ padding:"22px 26px", background:"linear-gradient(135deg,"+C.surface+","+C.card+")", border:"2px solid "+scoreColor(report.overallHealth?.score||0), borderRadius:12 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", flexWrap:"wrap", gap:12 }}>
+              <div>
+                <div style={{ color:C.gold, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>Story Health</div>
+                <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:18, fontWeight:600 }}>{report.overallHealth?.verdict}</div>
+                <div style={{ color:C.muted, fontSize:12, marginTop:4, maxWidth:420 }}>{report.overallHealth?.summary}</div>
+              </div>
+              <div style={{ fontFamily:"Cormorant Garamond, serif", fontSize:64, fontWeight:700, lineHeight:1, color:scoreColor(report.overallHealth?.score||0) }}>
+                {report.overallHealth?.score}<span style={{ fontSize:24, color:C.muted }}>/10</span>
+              </div>
+            </div>
+          </div>
+
+          {/* B — READABILITY */}
+          <div style={{ padding:"20px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
+            <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:14 }}>📊 Readability Analysis</div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))", gap:"12px 28px" }}>
+              {[
+                ["Overall",report.readabilityAnalysis?.overallScore],
+                ["Pacing",report.readabilityAnalysis?.pacing],
+                ["Dialogue",report.readabilityAnalysis?.dialogue],
+                ["Interiority",report.readabilityAnalysis?.interiority],
+                ["Tension",report.readabilityAnalysis?.tension],
+                ["Voice Consistency",report.readabilityAnalysis?.voiceConsistency],
+              ].map(([label,val]) => ( val != null ? <ScoreDimension key={label} label={label} value={val}/> : null ))}
+            </div>
+            {report.readabilityAnalysis?.archetypeReadabilityNotes && (
+              <div style={{ marginTop:10, padding:"8px 12px", background:C.manuscript, borderLeft:"3px solid "+C.gold, borderRadius:4, color:C.text, fontSize:12, fontStyle:"italic" }}>
+                {report.readabilityAnalysis.archetypeReadabilityNotes}
+              </div>
+            )}
+          </div>
+
+          {/* C — READER ARCHETYPE ALIGNMENT */}
+          {report.readerArchetypeAlignment && (
+            <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:12 }}>
+                <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>
+                  🎯 Reader Archetype Alignment
+                  {story?.primaryReader && (<span style={{ color:C.muted, textTransform:"none", letterSpacing:0, fontWeight:400, marginLeft:6 }}>· {story.primaryReader.archetypeName}</span>)}
+                </div>
+                <span style={{ fontFamily:"Cormorant Garamond, serif", fontSize:24, fontWeight:700, color:scoreColor(report.readerArchetypeAlignment.score) }}>{report.readerArchetypeAlignment.score}/10</span>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                <div>
+                  <div style={{ color:"#2D8B7A", fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Strengths</div>
+                  {(report.readerArchetypeAlignment.strengths||[]).map((s,i) => (
+                    <div key={i} style={{ padding:"4px 8px", background:"rgba(45,139,122,0.10)", border:"1px solid rgba(45,139,122,0.30)", borderRadius:5, fontSize:11, color:"#2D8B7A", marginBottom:4 }}>✓ {s}</div>
+                  ))}
+                </div>
+                <div>
+                  <div style={{ color:"#B8342D", fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Risks</div>
+                  {(report.readerArchetypeAlignment.risks||[]).map((r,i) => (
+                    <div key={i} style={{ padding:"4px 8px", background:"rgba(184,52,45,0.08)", border:"1px solid rgba(184,52,45,0.30)", borderRadius:5, fontSize:11, color:"#B8342D", marginBottom:4 }}>⚠ {r}</div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* D — PROMISE FULFILLMENT */}
+          {report.promiseFulfillment && (
+            <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:10 }}>
+                <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>📖 Promise Fulfillment</div>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ padding:"2px 8px", background: report.promiseFulfillment.onTrack ? "rgba(45,139,122,0.15)" : "rgba(184,52,45,0.10)", border:"1px solid " + (report.promiseFulfillment.onTrack ? "#2D8B7A" : "#B8342D"), borderRadius:10, fontSize:10, fontWeight:700, color: report.promiseFulfillment.onTrack ? "#2D8B7A" : "#B8342D" }}>
+                    {report.promiseFulfillment.onTrack ? "ON TRACK" : "AT RISK"}
+                  </span>
+                  <span style={{ fontFamily:"Cormorant Garamond, serif", fontSize:22, fontWeight:700, color:scoreColor(report.promiseFulfillment.score) }}>{report.promiseFulfillment.score}/10</span>
+                </div>
+              </div>
+              {(report.promiseFulfillment.gaps||[]).map((g,i) => (
+                <div key={i} style={{ padding:"5px 10px", marginBottom:5, background:C.warningBg, border:"1px solid #B07A1F", borderRadius:5, fontSize:11, color:C.warningText }}>⚠ {g}</div>
+              ))}
+            </div>
+          )}
+
+          {/* E — SAG POINTS MAP */}
+          {report.sagPoints && (
+            <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
+              <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:12 }}>📉 Story Sag Points</div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:14 }}>
+                {(outline?.chapters||[]).map(ch => {
+                  const isSag = (report.sagPoints||[]).some(s => (s.chapters||[]).includes(ch.number));
+                  const sagItem = isSag ? (report.sagPoints||[]).find(s => (s.chapters||[]).includes(ch.number)) : null;
+                  const hasProse = !!chapterProse[ch.number];
+                  return (
+                    <div key={ch.number} title={sagItem ? sagItem.issue : ch.title}
+                      style={{ width:28, height:28, borderRadius:5, background: isSag ? (sagItem?.severity==="high"?"#B8342D":"#B07A1F") : hasProse ? "#2D8B7A" : C.faint, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, color: isSag||hasProse ? C.bg : C.muted, fontWeight:700, cursor:isSag?"help":"default" }}>
+                      {ch.number}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ display:"flex", gap:10, marginBottom:12, fontSize:10, color:C.muted }}>
+                <span><span style={{ display:"inline-block", width:10, height:10, background:"#2D8B7A", borderRadius:2, marginRight:4 }}/>Written</span>
+                <span><span style={{ display:"inline-block", width:10, height:10, background:"#B07A1F", borderRadius:2, marginRight:4 }}/>Sag (medium)</span>
+                <span><span style={{ display:"inline-block", width:10, height:10, background:"#B8342D", borderRadius:2, marginRight:4 }}/>Sag (high)</span>
+              </div>
+              {(report.sagPoints||[]).map((s,i) => (
+                <div key={i} style={{ padding:"8px 12px", marginBottom:6, background:C.bg, border:"1px solid "+(s.severity==="high"?"#B8342D":"#B07A1F"), borderRadius:6 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                    <span style={{ color:C.text, fontSize:12, fontWeight:600 }}>Ch {(s.chapters||[]).join(", ")}</span>
+                    <span style={{ padding:"1px 6px", background:(s.severity==="high"?"#B8342D":"#B07A1F")+"22", border:"1px solid "+(s.severity==="high"?"#B8342D":"#B07A1F"), borderRadius:8, fontSize:9, color:s.severity==="high"?"#B8342D":"#B07A1F", fontWeight:700, textTransform:"uppercase" }}>{s.severity}</span>
+                  </div>
+                  <div style={{ color:C.muted, fontSize:11, marginBottom:3 }}>{s.issue}</div>
+                  <div style={{ color:C.gold, fontSize:11 }}>Fix: {s.fix}</div>
+                </div>
+              ))}
+              {(!report.sagPoints || report.sagPoints.length===0) && (<div style={{ color:"#2D8B7A", fontSize:12, fontStyle:"italic" }}>✓ No significant sag points detected.</div>)}
+            </div>
+          )}
+
+          {/* F — DROPOUT RISK */}
+          {report.dropoutRisk && report.dropoutRisk.length > 0 && (
+            <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
+              <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:10 }}>🚪 Dropout Risk</div>
+              {report.dropoutRisk.map((d,i) => {
+                const rColor = d.riskLevel==="high" ? "#B8342D" : d.riskLevel==="medium" ? "#B07A1F" : "#2D8B7A";
+                return (
+                  <div key={i} style={{ display:"flex", gap:12, alignItems:"flex-start", padding:"8px 0", borderBottom:i<report.dropoutRisk.length-1 ? "1px solid "+C.faint : "none" }}>
+                    <div style={{ minWidth:60, padding:"3px 8px", background:rColor+"22", border:"1px solid "+rColor, borderRadius:6, fontSize:10, color:rColor, fontWeight:700, textAlign:"center" }}>Ch {d.afterChapter}</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ color:C.text, fontSize:12, marginBottom:3 }}>{d.reason}</div>
+                      <div style={{ color:C.gold, fontSize:11 }}>Fix: {d.fix}</div>
+                    </div>
+                    <span style={{ padding:"1px 6px", background:rColor+"22", border:"1px solid "+rColor, borderRadius:8, fontSize:9, color:rColor, fontWeight:700, textTransform:"uppercase", flexShrink:0 }}>{d.riskLevel}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* G — CHARACTER AUDIT */}
+          {report.characterAudit && report.characterAudit.length > 0 && (
+            <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
+              <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:12 }}>👤 Character Development Audit</div>
+              <div style={{ display:"grid", gap:8 }}>
+                {[...report.characterAudit].sort((a,b) => a.developmentScore - b.developmentScore).map((c,i) => (
+                  <div key={i} style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:6 }}>
+                      <div>
+                        <span style={{ color:C.text, fontWeight:600, fontSize:13 }}>{c.name}</span>
+                        <span style={{ color:C.muted, fontSize:10, marginLeft:6, textTransform:"uppercase", letterSpacing:0.5 }}>{c.role}</span>
+                      </div>
+                      <span style={{ fontFamily:"Cormorant Garamond, serif", fontSize:18, fontWeight:700, color:scoreColor(c.developmentScore) }}>{c.developmentScore}/10</span>
+                    </div>
+                    <div style={{ height:4, background:C.faint, borderRadius:2, overflow:"hidden", marginBottom:8 }}>
+                      <div style={{ width:(c.developmentScore/10*100)+"%", height:"100%", background:scoreColor(c.developmentScore), borderRadius:2 }}/>
+                    </div>
+                    {c.issue && (<div style={{ color:C.muted, fontSize:11, marginBottom:3 }}>⚠ {c.issue}</div>)}
+                    {c.suggestion && (<div style={{ color:C.gold, fontSize:11 }}>Fix: {c.suggestion}</div>)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* H — SUBPLOT RANKING */}
+          {report.subplotRanking && report.subplotRanking.length > 0 && (
+            <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
+              <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:10 }}>🧵 Subplot Ranking</div>
+              {[...report.subplotRanking].sort((a,b) => b.strength - a.strength).map((s,i) => {
+                const mColor = s.momentum==="building"?"#2D8B7A":s.momentum==="resolved"?"#6B665E":s.momentum==="dormant"?"#B8342D":"#B07A1F";
+                return (
+                  <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 0", borderBottom:i<report.subplotRanking.length-1?"1px solid "+C.faint:"none" }}>
+                    <span style={{ color:C.muted, fontSize:10, minWidth:14 }}>#{i+1}</span>
+                    <span style={{ flex:1, color:C.text, fontSize:12 }}>{s.subplot}</span>
+                    <span style={{ padding:"1px 7px", background:mColor+"22", border:"1px solid "+mColor, borderRadius:8, fontSize:9, color:mColor, fontWeight:700, textTransform:"uppercase" }}>{s.momentum}</span>
+                    <span style={{ color:scoreColor(s.strength), fontWeight:700, fontSize:12, minWidth:32, textAlign:"right" }}>{s.strength}/10</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* I — EDITOR NOTES */}
+          {report.editorNotes && report.editorNotes.length > 0 && (
+            <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
+              <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:12 }}>✏️ Editor Notes · Prioritized</div>
+              {[...report.editorNotes].sort((a,b) => a.priority.localeCompare(b.priority)).map((n,i) => {
+                const pColor = n.priority==="P1"?"#B8342D":n.priority==="P2"?C.amber:"#6B665E";
+                return (
+                  <div key={i} style={{ display:"flex", gap:10, alignItems:"flex-start", padding:"8px 0", borderBottom:i<report.editorNotes.length-1?"1px solid "+C.faint:"none" }}>
+                    <span style={{ padding:"2px 8px", background:pColor+"22", border:"1px solid "+pColor, borderRadius:6, fontSize:10, color:pColor, fontWeight:700, flexShrink:0 }}>{n.priority}</span>
+                    <div style={{ flex:1 }}>
+                      <span style={{ color:C.text, fontSize:12 }}>{n.chapter ? `Ch ${n.chapter} — ` : "Story-wide — "}{n.note}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* J — PLOT THREAD TRACKER */}
+          <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
+            <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>🧵 Plot Thread Tracker</div>
+            <PlotThreadTracker bible={bible} currentChapterCount={Object.keys(chapterProse).filter(k=>chapterProse[k]).length} onAddManualThread={onAddManualThread}/>
+          </div>
+
+        </div>
+      )}
+
+      {!report && bible && (
+        <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10, marginTop:14 }}>
+          <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>🧵 Plot Thread Tracker</div>
+          <PlotThreadTracker bible={bible} currentChapterCount={Object.keys(chapterProse).filter(k=>chapterProse[k]).length} onAddManualThread={onAddManualThread}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── My Stories library (W2) ───────────────────────────────────
 function MyStories({ stories, activeStoryId, onOpen, onDuplicate, onDelete, onImport }) {
   const fileRef = useRef(null);
@@ -7146,6 +7838,13 @@ export default function App() {
   // ── Phase 1.5: genre preset quick-start ──
   const [selectedPreset, setSelectedPreset] = useState(null);
   const [tropeFilter, setTropeFilter] = useState("All");  // trope category tab (custom mode)
+
+  // ── Story Intelligence Layer ──
+  const [storyDNALocked, setStoryDNALocked] = useState(false);
+  const [storyHealthReport, setStoryHealthReport] = useState(null);
+  const [analyzingHealth, setAnalyzingHealth] = useState(false);
+  const [healthAnalysisErr, setHealthAnalysisErr] = useState("");
+  const [healthAnalysisTimestamp, setHealthAnalysisTimestamp] = useState(null);
   const handlePresetSelect = useCallback((preset) => {
     setSelectedPreset(preset.id);
     if (preset.id === "custom" || !preset.lanes) return;
@@ -7428,6 +8127,7 @@ export default function App() {
         heroineWound, heroWound, setting, city, family, intensity,
         externalConflict, relationshipObstacle, familyInfluence,
         spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng,
+        selectedPresetId: selectedPreset,
         universe: activeUniverse
       });
       // Attach spice/intensity to the story object so the scene engine can use them
@@ -7437,6 +8137,7 @@ export default function App() {
       s.streetLitEng = streetLitEng;
       s.suspenseEng = suspenseEng;
       setStory(s);
+      setStoryDNALocked(true);   // Story Intelligence Layer: lock DNA after generation
       // W2: if no story is active yet (first load, or after deleting the active
       // story), auto-create story #1 from the current builder state.
       if (!activeStoryId) {
@@ -7444,6 +8145,7 @@ export default function App() {
         const rec = freshStoryRecord(id);
         rec.title = s.title || "Untitled Story";
         rec.blueprint = s;
+        rec.storyDNALocked = true;
         Object.assign(rec, {
           laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
           setting, city, family, intensity, externalConflict, relationshipObstacle,
@@ -7486,7 +8188,7 @@ export default function App() {
     laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
     setting, city, family, intensity, externalConflict, relationshipObstacle, familyInfluence,
     spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng,
-    blueprint: story, outline, bible, bibleLocked, chapterProse, chapterReports, chapterSummaries,
+    blueprint: story, outline, bible, bibleLocked, storyDNALocked, chapterProse, chapterReports, chapterSummaries,
     chapterSceneCards, sceneProse, sceneSummaries, sceneLocked, bookPackage
   });
 
@@ -7518,7 +8220,7 @@ export default function App() {
     setEroticRomance({...DEFAULT_EROTIC}); eroticAppliedRef.current = null;
     setStreetLitEng({...DEFAULT_STREETLIT}); streetLitAppliedRef.current = null;
     setSuspenseEng({...DEFAULT_SUSPENSE}); suspenseAppliedRef.current = null;
-    setStory(null); setOutline(null); setBible(null); setBibleLocked(false);
+    setStory(null); setOutline(null); setBible(null); setBibleLocked(false); setStoryDNALocked(false);
     setChapterProse({}); setChapterReports({}); setChapterSummaries({});
     setChapterSceneCards({}); setSceneProse({}); setSceneSummaries({}); setSceneLocked({});
     setBookPackage(null);
@@ -7544,6 +8246,7 @@ export default function App() {
     suspenseAppliedRef.current = (dominantUrbanEngine(normalize(rec.laneVals || {}), "suspenseEng") || {}).catId || null;
     setStory(rec.blueprint ?? null); setOutline(rec.outline ?? null); setBible(rec.bible ?? null);
     setBibleLocked(rec.bibleLocked ?? !!rec.bible);  // legacy bibles count as locked
+    setStoryDNALocked(rec.storyDNALocked ?? !!(rec.blueprint && rec.blueprint.storyDNA));
     setChapterProse(rec.chapterProse ?? {}); setChapterReports(rec.chapterReports ?? {}); setChapterSummaries(rec.chapterSummaries ?? {});
     setChapterSceneCards(rec.chapterSceneCards ?? {}); setSceneProse(rec.sceneProse ?? {});
     setSceneSummaries(rec.sceneSummaries ?? {}); setSceneLocked(rec.sceneLocked ?? {});
@@ -7575,6 +8278,40 @@ export default function App() {
     skipAutosaveRef.current = true;
     setStories(prev => { const next = [rec, ...prev]; saveStories(next); return next; });
     setActiveStoryId(rec.id); saveActiveStoryId(rec.id);
+  };
+
+  // Story Intelligence Layer: regenerate the blueprint (clears outputs, keeps inputs)
+  const regenerateBlueprint = () => {
+    if (!window.confirm("Regenerating will replace your story's foundation. All chapters, the Story Bible, and continuity data will be cleared. Are you sure?")) return;
+    setStoryDNALocked(false);
+    setStory(null); setOutline(null); setBible(null); setBibleLocked(false);
+    setChapterProse({}); setChapterReports({}); setChapterSummaries({});
+    setChapterSceneCards({}); setSceneProse({}); setSceneSummaries({}); setSceneLocked({});
+    setBookPackage(null); setStoryHealthReport(null);
+    goToSection("newStory");
+  };
+
+  // Story Intelligence Layer: run the full story health analysis
+  const runStoryAnalysis = useCallback(async () => {
+    if (!story || !outline) return;
+    setAnalyzingHealth(true);
+    setHealthAnalysisErr("");
+    try {
+      const report = await analyzeStoryHealth(story, outline, bible, chapterProse, chapterSummaries);
+      setStoryHealthReport(report);
+      setHealthAnalysisTimestamp(Date.now());
+    } catch(e) { setHealthAnalysisErr(e.message); }
+    finally { setAnalyzingHealth(false); }
+  }, [story, outline, bible, chapterProse, chapterSummaries]);
+
+  // Story Intelligence Layer: add a manual plot thread to the bible (Editor Mode)
+  const addManualThreadApp = (name) => {
+    setBible(prev => {
+      if (!prev) return prev;
+      const plot = { ...(prev.plot||{}) };
+      plot.manualThreads = [...(plot.manualThreads||[]), { name, status:"open" }];
+      return { ...prev, plot };
+    });
   };
 
   const handleNewStory = () => {
@@ -7661,7 +8398,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStoryId, story, laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
       setting, city, family, intensity, externalConflict, relationshipObstacle, familyInfluence,
-      spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng, outline, bible, bibleLocked, chapterProse, chapterReports, chapterSummaries,
+      spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng, outline, bible, bibleLocked, storyDNALocked, chapterProse, chapterReports, chapterSummaries,
       chapterSceneCards, sceneProse, sceneSummaries, sceneLocked, bookPackage]);
 
   // Hydrate the active story once on mount so a refresh restores your place
@@ -7810,8 +8547,22 @@ export default function App() {
                 onImport={importStoryFromJSON}/>
             )}
 
-            {/* Default story-builder view — activeSection in {newStory, storyBible, characterStudio, sceneStudio, draftManuscript, editorMode} all render the full builder */}
-            {!["publishingStudio","dashboard","readerIntelligence","marketIntelligence","settings","myStories"].includes(activeSection) && (
+            {/* EDITOR MODE dashboard (Story Intelligence Layer) */}
+            {activeSection === "editorMode" && (
+              story ? (
+                <EditorModeDashboard
+                  story={story} outline={outline} bible={bible}
+                  chapterProse={chapterProse} chapterSummaries={chapterSummaries}
+                  report={storyHealthReport} analyzing={analyzingHealth}
+                  timestamp={healthAnalysisTimestamp} error={healthAnalysisErr}
+                  onRunAnalysis={runStoryAnalysis} onAddManualThread={addManualThreadApp}/>
+              ) : (
+                <NeedsStoryEmpty section="Editor Mode" onGoToBuilder={()=>goToSection("newStory")}/>
+              )
+            )}
+
+            {/* Default story-builder view — activeSection in {newStory, storyBible, characterStudio, sceneStudio, draftManuscript} all render the full builder */}
+            {!["publishingStudio","dashboard","readerIntelligence","marketIntelligence","settings","myStories","editorMode"].includes(activeSection) && (
               <>
             {activeUniverse && (
               <div style={{ padding:"14px 20px", background:C.glow, border:"1px solid "+C.gold,
@@ -8052,6 +8803,13 @@ export default function App() {
 
         {/* GENERATE */}
         <div style={{ textAlign:"center", marginBottom:22 }}>
+          {story && storyDNALocked ? (
+            <button onClick={regenerateBlueprint}
+              style={{ padding:"6px 14px", background:"transparent", color:C.muted, border:"none",
+                       fontSize:12, cursor:"pointer", textDecoration:"underline", fontFamily:"Nunito, sans-serif" }}>
+              Regenerate Blueprint ↺
+            </button>
+          ) : (
           <button onClick={run} disabled={!canRun}
             style={{ padding:"16px 40px",
                      background: canRun ? "linear-gradient(135deg, "+C.gold+", "+C.amber+")" : C.faint,
@@ -8064,6 +8822,7 @@ export default function App() {
                      transition:"all 0.2s" }}>
             {loading ? "Architecting Your Story..." : "✦ Generate Story Blueprint"}
           </button>
+          )}
           {!blendActive && <div style={{ color:C.muted, fontSize:12, marginTop:10 }}>Move at least one Story Blend slider above zero</div>}
           {blendActive && tropes.length===0 && <div style={{ color:C.muted, fontSize:12, marginTop:10 }}>Pick at least one trope</div>}
         </div>
