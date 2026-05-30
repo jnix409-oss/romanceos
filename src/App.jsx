@@ -30,6 +30,80 @@ const LANES = [
   { id:"crimeSaga",    label:"Crime Family Saga",           color:"#5A2030", desc:"Legacy, succession, empire, family loyalty, inheritance, secrets, betrayal" },
 ];
 
+// ── Genre Presets (Phase 1.5) — quick-start calibration. Lane keys use the
+//    actual lane ids (sexyContemp, crimeSaga). "custom" leaves everything alone.
+const GENRE_PRESETS = [
+  { id:"power_purpose_romance", label:"Power & Purpose", icon:"💼",
+    lanes:{ healing:4, community:1, luxury:4, family:2, urban:0, reinvention:4, suspense:0, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:0, streetLit:0, crimeSaga:0 },
+    tropes:["Workplace Romance","Billionaire / CEO","Enemies to Lovers","Forced Proximity"], heat:3, spiceLevel:3,
+    romanceIntensity:{ attractionIntensity:3, emotionalIntimacy:5, physicalAffection:3, relationshipFocus:5 } },
+  { id:"black_billionaire_romance", label:"Black Billionaire", icon:"👑",
+    lanes:{ healing:2, community:0, luxury:6, family:2, urban:0, reinvention:1, suspense:0, faith:0, eroticUrban:0, sexyContemp:1, eroticDrama:0, luxuryErotic:3, streetLit:0, crimeSaga:0 },
+    tropes:["Billionaire / CEO","Enemies to Lovers","Forced Proximity","Family Empire"], heat:3, spiceLevel:3,
+    romanceIntensity:{ attractionIntensity:4, emotionalIntimacy:4, physicalAffection:3, relationshipFocus:4 } },
+  { id:"soft_black_romance", label:"Soft Black Romance", icon:"🌹",
+    lanes:{ healing:6, community:4, luxury:0, family:2, urban:0, reinvention:3, suspense:0, faith:0, eroticUrban:0, sexyContemp:2, eroticDrama:0, luxuryErotic:0, streetLit:0, crimeSaga:0 },
+    tropes:["Second Chance","Hurt / Comfort","Friends to Lovers","Single Parent"], heat:2, spiceLevel:2,
+    romanceIntensity:{ attractionIntensity:3, emotionalIntimacy:5, physicalAffection:2, relationshipFocus:5 } },
+  { id:"family_empire_romance", label:"Family Empire Romance", icon:"🏛️",
+    lanes:{ healing:2, community:1, luxury:4, family:6, urban:1, reinvention:0, suspense:0, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:1, streetLit:0, crimeSaga:2 },
+    tropes:["Family Empire","Forbidden Love","Enemies to Lovers","Second Chance"], heat:3, spiceLevel:3,
+    romanceIntensity:{ attractionIntensity:3, emotionalIntimacy:4, physicalAffection:3, relationshipFocus:4 } },
+  { id:"sexy_contemporary_black_romance", label:"Sexy Contemporary", icon:"🔥",
+    lanes:{ healing:2, community:2, luxury:2, family:1, urban:0, reinvention:1, suspense:0, faith:0, eroticUrban:3, sexyContemp:5, eroticDrama:0, luxuryErotic:1, streetLit:0, crimeSaga:0 },
+    tropes:["Friends to Lovers","Second Chance","Workplace Romance","Hurt / Comfort"], heat:4, spiceLevel:4,
+    romanceIntensity:{ attractionIntensity:4, emotionalIntimacy:4, physicalAffection:4, relationshipFocus:5 } },
+  { id:"erotic_urban_romance", label:"Erotic Urban Romance", icon:"💋",
+    lanes:{ healing:1, community:1, luxury:1, family:1, urban:3, reinvention:0, suspense:0, faith:0, eroticUrban:6, sexyContemp:1, eroticDrama:3, luxuryErotic:0, streetLit:0, crimeSaga:0 },
+    tropes:["Forbidden Love","Friends to Lovers","Second Chance","Protective Hero"], heat:5, spiceLevel:5,
+    romanceIntensity:{ attractionIntensity:5, emotionalIntimacy:4, physicalAffection:5, relationshipFocus:5 } },
+  { id:"urban_drama_romance", label:"Urban Drama Romance", icon:"💔",
+    lanes:{ healing:1, community:1, luxury:1, family:3, urban:5, reinvention:0, suspense:1, faith:0, eroticUrban:1, sexyContemp:0, eroticDrama:4, luxuryErotic:0, streetLit:1, crimeSaga:0 },
+    tropes:["Protective Hero","Second Chance","Forbidden Love","Family Empire"], heat:4, spiceLevel:4,
+    romanceIntensity:{ attractionIntensity:5, emotionalIntimacy:3, physicalAffection:4, relationshipFocus:5 } },
+  { id:"street_lit", label:"Street Lit", icon:"🏙️",
+    lanes:{ healing:0, community:1, luxury:1, family:2, urban:5, reinvention:0, suspense:2, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:1, luxuryErotic:0, streetLit:8, crimeSaga:2 },
+    tropes:["Family Empire","Protective Hero","Enemies to Lovers","Second Chance"], heat:3, spiceLevel:3,
+    romanceIntensity:{ attractionIntensity:4, emotionalIntimacy:2, physicalAffection:3, relationshipFocus:2 } },
+  { id:"crime_family_saga", label:"Crime Family Saga", icon:"💰",
+    lanes:{ healing:0, community:0, luxury:2, family:5, urban:4, reinvention:0, suspense:2, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:0, streetLit:3, crimeSaga:7 },
+    tropes:["Family Empire","Forbidden Love","Protective Hero","Enemies to Lovers"], heat:2, spiceLevel:2,
+    romanceIntensity:{ attractionIntensity:3, emotionalIntimacy:2, physicalAffection:2, relationshipFocus:2 } },
+  { id:"kingpin_romance", label:"Kingpin Romance", icon:"♠️",
+    lanes:{ healing:0, community:0, luxury:2, family:3, urban:5, reinvention:0, suspense:2, faith:0, eroticUrban:3, sexyContemp:0, eroticDrama:3, luxuryErotic:0, streetLit:4, crimeSaga:4 },
+    tropes:["Protective Hero","Forbidden Love","Enemies to Lovers","Family Empire"], heat:5, spiceLevel:5,
+    romanceIntensity:{ attractionIntensity:5, emotionalIntimacy:3, physicalAffection:5, relationshipFocus:4 } },
+  { id:"romantic_suspense", label:"Romantic Suspense", icon:"🔍",
+    lanes:{ healing:2, community:0, luxury:0, family:1, urban:1, reinvention:0, suspense:6, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:0, streetLit:0, crimeSaga:0 },
+    tropes:["Protective Hero","Forced Proximity","Enemies to Lovers","Second Chance"], heat:3, spiceLevel:3,
+    romanceIntensity:{ attractionIntensity:4, emotionalIntimacy:4, physicalAffection:3, relationshipFocus:4 } },
+  { id:"black_mystery", label:"Black Mystery", icon:"🕵🏾",
+    lanes:{ healing:1, community:1, luxury:0, family:2, urban:1, reinvention:0, suspense:8, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:0, streetLit:0, crimeSaga:1 },
+    tropes:["Protective Hero","Second Chance","Family Empire","Forbidden Love"], heat:1, spiceLevel:1,
+    romanceIntensity:{ attractionIntensity:2, emotionalIntimacy:2, physicalAffection:1, relationshipFocus:1 } },
+  { id:"political_thriller", label:"Political Thriller", icon:"🏛️",
+    lanes:{ healing:0, community:1, luxury:2, family:2, urban:0, reinvention:0, suspense:7, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:0, streetLit:0, crimeSaga:1 },
+    tropes:["Enemies to Lovers","Forced Proximity","Forbidden Love","Protective Hero"], heat:1, spiceLevel:1,
+    romanceIntensity:{ attractionIntensity:2, emotionalIntimacy:2, physicalAffection:1, relationshipFocus:1 } },
+  { id:"corporate_thriller", label:"Corporate Thriller", icon:"🏢",
+    lanes:{ healing:1, community:0, luxury:3, family:1, urban:0, reinvention:1, suspense:6, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:0, streetLit:0, crimeSaga:0 },
+    tropes:["Workplace Romance","Enemies to Lovers","Forced Proximity","Billionaire / CEO"], heat:2, spiceLevel:2,
+    romanceIntensity:{ attractionIntensity:2, emotionalIntimacy:3, physicalAffection:1, relationshipFocus:2 } },
+  { id:"faith_purpose_romance", label:"Faith & Purpose", icon:"🙏🏾",
+    lanes:{ healing:4, community:3, luxury:0, family:2, urban:0, reinvention:3, suspense:0, faith:6, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:0, streetLit:0, crimeSaga:0 },
+    tropes:["Friends to Lovers","Second Chance","Redemption Arc","Hurt / Comfort"], heat:1, spiceLevel:1,
+    romanceIntensity:{ attractionIntensity:2, emotionalIntimacy:5, physicalAffection:1, relationshipFocus:4 } },
+  { id:"faith_family_saga", label:"Faith Family Saga", icon:"⛪",
+    lanes:{ healing:3, community:4, luxury:0, family:5, urban:0, reinvention:2, suspense:0, faith:5, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:0, streetLit:0, crimeSaga:0 },
+    tropes:["Family Empire","Second Chance","Redemption Arc","Friends to Lovers"], heat:1, spiceLevel:1,
+    romanceIntensity:{ attractionIntensity:2, emotionalIntimacy:5, physicalAffection:1, relationshipFocus:3 } },
+  { id:"womens_fiction", label:"Women's Fiction", icon:"🌿",
+    lanes:{ healing:5, community:3, luxury:0, family:3, urban:0, reinvention:7, suspense:0, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:0, streetLit:0, crimeSaga:0 },
+    tropes:["Second Chance","Single Parent","Reunited Lovers","Friends to Lovers"], heat:2, spiceLevel:2,
+    romanceIntensity:{ attractionIntensity:3, emotionalIntimacy:5, physicalAffection:2, relationshipFocus:3 } },
+  { id:"custom", label:"Custom", icon:"✦", lanes:null, tropes:null, heat:null, spiceLevel:null, romanceIntensity:null },
+];
+
 const TROPES = [
   "Enemies to Lovers","Forced Proximity","Billionaire / CEO","Secret Baby",
   "Fake Dating","Second Chance","Small Town Return","Single Parent",
@@ -629,7 +703,17 @@ const LANE_TO_PATTERNS = {
   reinvention: ["power_purpose","soft_black_romance"],
   suspense:    ["romantic_suspense","crime_thriller","corporate_mystery"],
   faith:       ["faith_based","southern_black_mystery"],
+  // Phase 1.5: extended genre lanes mapped to nearest existing patterns
+  eroticUrban:  ["urban_romance","billionaire"],
+  sexyContemp:  ["soft_black_romance","urban_romance"],
+  eroticDrama:  ["urban_romance","urban_fiction"],
+  luxuryErotic: ["billionaire","power_purpose"],
+  streetLit:    ["urban_fiction","urban_family_empire"],
+  crimeSaga:    ["urban_family_empire","urban_fiction"],
 };
+// Phase 1.5: which lanes show in Tier 1 (Story Blend) vs Advanced Calibration
+const PRIMARY_LANE_IDS = ["healing","community","luxury","family","urban","reinvention","suspense","faith"];
+const EXTENDED_LANE_IDS = ["eroticUrban","sexyContemp","eroticDrama","luxuryErotic","streetLit","crimeSaga"];
 
 // Compute the top 3 activated patterns weighted by lane percentages
 function getActivatedPatterns(normLanes) {
@@ -2088,6 +2172,91 @@ const SYS_SCENE = [
 ].join("\n");
 
 // Generate 3-5 scene cards for a single chapter
+// ── Fast Draft Mode (Phase 1.5) ────────────────────────────────
+// Compact bible context for batch scene drafting (snapshots, not full profiles)
+function fastBibleContext(bible, chapterNum, outline) {
+  if (!bible) return "";
+  const parts = ["── FAST DRAFT CONTEXT ──"];
+
+  if (bible.characters && bible.characters.length) {
+    parts.push("CHARACTERS:");
+    bible.characters.forEach(c => {
+      parts.push(`  ${c.name} (${c.role}) · ${c.occupation} · wound: ${c.wound} · speech: ${c.speechPatterns}`);
+    });
+  }
+  if (bible.relationship) {
+    parts.push(`RELATIONSHIP: Currently "${bible.relationship.currentState}" · Obstacle: ${bible.relationship.obstacle}`);
+  }
+  const openMysteries = ((bible.plot && bible.plot.mysteries) || []).filter(m => m.status !== "resolved").map(m => m.name);
+  const unresolvedSecrets = ((bible.plot && bible.plot.secrets) || []).filter(s => !s.revealedIn).map(s => s.owner + " hides: " + s.secret);
+  if (openMysteries.length || unresolvedSecrets.length) {
+    parts.push("ACTIVE THREADS: " + [...openMysteries, ...unresolvedSecrets].join(" · "));
+  }
+  const prevChapters = (bible.chapters || []).slice(-2);
+  if (prevChapters.length) {
+    parts.push("RECENT: " + prevChapters.map(c => `Ch${c.number}: ${(c.majorEvents || []).join("; ")}`).join(" || "));
+  }
+  parts.push("── END CONTEXT ──");
+  return parts.join("\n");
+}
+
+// Write a batch of 2-3 scenes in a single call, split on a delimiter
+async function writeScenesInBatch(story, outline, chapterNum, scenes, bible, opts) {
+  const o = opts || {};
+  const ch = outline.chapters[chapterNum - 1];
+  const context = fastBibleContext(bible, chapterNum, outline);
+  const totalTarget = scenes.reduce((sum, s) => sum + (s.targetWordCount || 900), 0);
+
+  const sceneDescriptions = scenes.map((s) =>
+    `SCENE ${s.sceneNumber}: "${s.sceneTitle}"
+  Purpose: ${s.scenePurpose}
+  Location: ${s.location} · ${s.timeOfDay}
+  POV: ${s.povCharacter}
+  Goal: ${s.characterGoal}
+  Conflict: ${s.conflictType}
+  Emotional beat: ${s.emotionalBeat}
+  Romance beat: ${s.romanceBeat}
+  Wound triggered: ${s.woundTriggered}
+  Outcome: ${s.sceneOutcome}
+  Transition: ${s.transitionToNextScene}
+  Target words: ${s.targetWordCount || 900}`
+  ).join("\n\n");
+
+  const user = [
+    `BOOK: ${story.title}`,
+    context,
+    ``,
+    `CHAPTER ${chapterNum}: ${ch.title}`,
+    `Beat: ${ch.beat}`,
+    `Arc stage: ${ch.arcStage}`,
+    ``,
+    `Write the following ${scenes.length} scenes as continuous prose.`,
+    `Total target: ${totalTarget} words.`,
+    `Separate scenes with exactly this delimiter on its own line: <<<SCENE_BREAK>>>`,
+    ``,
+    `Requirements for all scenes:`,
+    `- Strong sensory prose, internal monologue, sharp dialogue`,
+    `- Maintain character voices and relationship state`,
+    `- Each scene ends at its stated outcome`,
+    `- Do not summarize — write full prose`,
+    ``,
+    sceneDescriptions,
+    ``,
+    `Begin Scene ${scenes[0].sceneNumber} now. No headers, no labels, just prose.`,
+    `Use <<<SCENE_BREAK>>> between scenes only.`,
+  ].join("\n");
+
+  const maxTok = Math.min(8000, Math.max(3000, Math.round(totalTarget * 1.5)));
+  const raw = await apiCall(SYS_SCENE, user, maxTok);
+
+  const parts = raw.split("<<<SCENE_BREAK>>>");
+  const result = {};
+  scenes.forEach((s, i) => {
+    result[s.sceneNumber] = (parts[i] || "").trim();
+  });
+  return result;
+}
+
 async function generateSceneCards(story, outline, chapterNum, bible, opts) {
   const ch = outline.chapters[chapterNum-1];
   const o = opts || {};
@@ -2737,7 +2906,7 @@ function freshStoryRecord(id) {
     setting:null, city:null, family:null, intensity:3, externalConflict:null,
     relationshipObstacle:null, familyInfluence:7, spiceLevel:2, romanceIntensity:DEFAULT_INTENSITY,
     eroticRomance:{...DEFAULT_EROTIC}, streetLitEng:{...DEFAULT_STREETLIT}, suspenseEng:{...DEFAULT_SUSPENSE},
-    blueprint:null, outline:null, bible:null, chapterProse:{}, chapterReports:{},
+    blueprint:null, outline:null, bible:null, bibleLocked:false, chapterProse:{}, chapterReports:{},
     chapterSummaries:{}, chapterSceneCards:{}, sceneProse:{}, sceneSummaries:{}, sceneLocked:{}, bookPackage:null
   };
 }
@@ -3586,6 +3755,38 @@ function EngineSliders({ icon, title, note, dims, value, onChange, categoryName,
   );
 }
 
+// ── Genre Preset quick-start bar (Phase 1.5) ───────────────────
+function GenrePresetBar({ selected, onSelect }) {
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ color: C.gold, fontSize: 11, letterSpacing: 1.5,
+                    textTransform: "uppercase", fontWeight: 700, marginBottom: 8 }}>
+        Quick Start · Genre Preset
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+        {GENRE_PRESETS.map(p => (
+          <button key={p.id} onClick={() => onSelect(p)}
+            style={{
+              padding: "7px 14px", borderRadius: 18,
+              background: selected === p.id ? C.gold : "transparent",
+              color: selected === p.id ? C.bg : C.text,
+              border: "1px solid " + (selected === p.id ? C.gold : C.borderLight),
+              fontSize: 13, fontWeight: 500, cursor: "pointer",
+              fontFamily: "Nunito, sans-serif",
+            }}>
+            {p.icon} {p.label}
+          </button>
+        ))}
+      </div>
+      {selected && selected !== "custom" && (
+        <div style={{ marginTop: 6, color: C.muted, fontSize: 11 }}>
+          Auto-calibrated · Override anything in Advanced Calibration below
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Premium Left Navigation (Notion / Linear / Arc aesthetic) ─
 
 const NAV_SECTIONS = [
@@ -4397,7 +4598,7 @@ function ManuscriptSpec({ targetWordCount, onTargetChange, chapterCount, onChapt
 
 function SceneCard({ scene, chapterNum, prose, summary, locked, editing, status,
                      onWrite, onContinue, onEdit, onSaveEdit, onCancelEdit, onRegen, onLock, onSummarize,
-                     writing, continuing, summarizing, hasBible }) {
+                     writing, continuing, summarizing, hasBible, hideWrite }) {
   const wordCount = prose ? prose.trim().split(/\s+/).filter(Boolean).length : 0;
   const target = scene.targetWordCount || 900;
   const pct = Math.min(100, Math.round(wordCount / target * 100));
@@ -4451,8 +4652,8 @@ function SceneCard({ scene, chapterNum, prose, summary, locked, editing, status,
         {scene.romanceBeat && <div><span style={{ color:C.amber, fontWeight:600 }}>Romance: </span>{scene.romanceBeat}</div>}
       </div>
 
-      {/* Action buttons (no prose yet) */}
-      {!prose && (
+      {/* Action buttons (no prose yet) — hidden in Fast Draft mode (batch buttons handle it) */}
+      {!prose && !hideWrite && (
         <button onClick={onWrite} disabled={writing || locked}
           style={{ padding:"6px 14px", background:writing?C.faint:(locked?C.faint:"transparent"), color:writing?C.muted:(locked?C.muted:C.gold),
                    border:"1px solid "+(locked?C.faint:C.gold), borderRadius:5, fontSize:11, fontWeight:600,
@@ -5262,13 +5463,17 @@ function ChapterBuilder({ story, universe, chapterState }) {
   // Persistent chapter/scene data is lifted to App so the active story owns it
   // (enables multi-story persistence). UI/loading flags stay local below.
   const {
-    outline, setOutline, bible, setBible,
+    outline, setOutline, bible, setBible, bibleLocked, setBibleLocked,
     chapterProse, setChapterProse, chapterReports, setChapterReports,
     chapterSummaries, setChapterSummaries,
     chapterSceneCards, setChapterSceneCards, sceneProse, setSceneProse,
     sceneSummaries, setSceneSummaries, sceneLocked, setSceneLocked
   } = chapterState;
 
+  const [bibleViewerOpen, setBibleViewerOpen] = useState(false);  // Phase 1.5: View toggle
+  const [fastDraftMode, setFastDraftMode] = useState(false);      // Phase 1.5: Fast Draft
+  const [fastDraftBatchSize, setFastDraftBatchSize] = useState(2);
+  const [writingBatch, setWritingBatch] = useState(null);          // { ch, scenes:[nums] }
   const [loadingOutline, setLoadingOutline] = useState(false);
   const [buildingBible, setBuildingBible] = useState(false);
   const [writingCh, setWritingCh] = useState(null);
@@ -5302,9 +5507,43 @@ function ChapterBuilder({ story, universe, chapterState }) {
     try {
       const b = await generateStoryBible(story, outline);
       setBible(b);
+      setBibleLocked(true);   // Phase 1.5: lock on successful build
+      setBibleViewerOpen(false);
     } catch(e) { setErr(e.message); }
     finally { setBuildingBible(false); }
-  }, [story, outline]);
+  }, [story, outline, setBible, setBibleLocked]);
+
+  // Phase 1.5: reset the bible (clears continuity tracking + chapter history)
+  const resetBible = useCallback(() => {
+    if (!window.confirm("Reset the Story Bible? This clears all continuity tracking and chapter history. This cannot be undone. Are you sure?")) return;
+    setBible(null);
+    setBibleLocked(false);
+    setChapterReports({});
+    setChapterSummaries({});
+    setBibleViewerOpen(false);
+  }, [setBible, setBibleLocked, setChapterReports, setChapterSummaries]);
+
+  // Phase 1.5: draft a batch of scenes in one call
+  const draftBatch = useCallback(async (chapterNum, batchScenes) => {
+    if (!batchScenes.length || writingBatch) return;
+    setWritingBatch({ ch: chapterNum, scenes: batchScenes.map(s => s.sceneNumber) });
+    setErr("");
+    try {
+      const result = await writeScenesInBatch(story, outline, chapterNum, batchScenes, bible, {
+        spiceLevel: story.spiceLevel || 2,
+        romanceIntensity: story.romanceIntensity || DEFAULT_INTENSITY,
+        eroticRomance: story.eroticRomance || DEFAULT_EROTIC,
+        streetLitEng: story.streetLitEng || DEFAULT_STREETLIT,
+        suspenseEng: story.suspenseEng || DEFAULT_SUSPENSE
+      });
+      setSceneProse(prev => {
+        const chMap = { ...(prev[chapterNum] || {}) };
+        Object.entries(result).forEach(([sn, prose]) => { if (prose) chMap[sn] = prose; });
+        return { ...prev, [chapterNum]: chMap };
+      });
+    } catch(e) { setErr(e.message); }
+    finally { setWritingBatch(null); }
+  }, [story, outline, bible, setSceneProse, writingBatch]);
 
   const writeChapter = useCallback(async (n) => {
     setWritingCh(n); setErr("");
@@ -5610,10 +5849,24 @@ function ChapterBuilder({ story, universe, chapterState }) {
             {buildingBible ? "Building Bible..." : "Step 2 · Initialize Story Bible"}
           </button>
         )}
-        {bible && (
-          <div style={{ padding:"6px 12px", background:C.glow, border:"1px solid "+C.gold, borderRadius:6,
-                        color:C.gold, fontSize:11, fontWeight:600 }}>
-            ✓ Bible active · {(bible.chapters||[]).length}/{outline?outline.chapters.length:0} chapters tracked
+        {bible && bibleLocked && (
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <div style={{ padding:"6px 12px", background:"#2D8B7A22", border:"1px solid #2D8B7A", borderRadius:6,
+                            color:"#2D8B7A", fontSize:11, fontWeight:700 }}>
+                ✓ Story Bible Active · {(bible.chapters||[]).length}/{outline?outline.chapters.length:0} tracked
+              </div>
+              <button onClick={()=>setBibleViewerOpen(o=>!o)}
+                style={{ padding:"5px 11px", background:"transparent", color:C.gold, border:"1px solid "+C.borderLight,
+                         borderRadius:6, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+                {bibleViewerOpen ? "Hide" : "View"}
+              </button>
+            </div>
+            <button onClick={resetBible}
+              style={{ background:"none", border:"none", color:C.muted, fontSize:10, cursor:"pointer",
+                       textDecoration:"underline", fontFamily:"Nunito, sans-serif", padding:0 }}>
+              Reset Bible
+            </button>
           </div>
         )}
       </div>
@@ -5639,7 +5892,7 @@ function ChapterBuilder({ story, universe, chapterState }) {
 
       {err && <div style={{ color:"#B8342D", fontSize:12, marginBottom:12, padding:"8px 12px", background:"#FBE9E7", border:"1px solid #B8342D", borderRadius:6 }}>⚠ {err}</div>}
 
-      {bible && <StoryBibleViewer bible={bible}/>}
+      {bible && bibleViewerOpen && <StoryBibleViewer bible={bible}/>}
 
       {outline && outline.chapters && (
         <div style={{ marginTop:bible?22:0 }}>
@@ -5739,17 +5992,54 @@ function ChapterBuilder({ story, universe, chapterState }) {
                 {/* Scene cards rendered when generated */}
                 {hasScenes && (
                   <div style={{ marginTop:12 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10, flexWrap:"wrap" }}>
                       <div style={{ color:C.amber, fontSize:10, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>
                         🎬 {scenes.length} Scene Cards
                       </div>
-                      <button onClick={()=>setExpandedChapter(expandedChapter===ch.number ? null : ch.number)}
-                        style={{ padding:"3px 8px", background:"transparent", color:C.muted, border:"1px solid "+C.borderLight, borderRadius:4, fontSize:10, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
-                        {expandedChapter===ch.number ? "Collapse" : "Expand"}
-                      </button>
+                      <div style={{ display:"flex", alignItems:"center", gap:8, marginLeft:"auto" }}>
+                        <span style={{ color:C.muted, fontSize:11 }}>Fast Draft</span>
+                        <button onClick={() => setFastDraftMode(!fastDraftMode)}
+                          style={{ width:36, height:20, borderRadius:10, border:"none", cursor:"pointer",
+                                   background: fastDraftMode ? C.gold : C.borderLight, position:"relative", transition:"background 0.2s" }}>
+                          <span style={{ position:"absolute", top:2, width:16, height:16, borderRadius:8, background:"#fff",
+                                         transition:"left 0.2s", left: fastDraftMode ? 18 : 2 }}/>
+                        </button>
+                        {fastDraftMode && (
+                          <select value={fastDraftBatchSize} onChange={e => setFastDraftBatchSize(Number(e.target.value))}
+                            style={{ padding:"2px 6px", background:C.card, color:C.text, border:"1px solid "+C.borderLight,
+                                     borderRadius:4, fontSize:11, fontFamily:"Nunito, sans-serif" }}>
+                            <option value={2}>2 scenes/batch</option>
+                            <option value={3}>3 scenes/batch</option>
+                          </select>
+                        )}
+                        <button onClick={()=>setExpandedChapter(expandedChapter===ch.number ? null : ch.number)}
+                          style={{ padding:"3px 8px", background:"transparent", color:C.muted, border:"1px solid "+C.borderLight, borderRadius:4, fontSize:10, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+                          {expandedChapter===ch.number ? "Collapse" : "Expand"}
+                        </button>
+                      </div>
                     </div>
                     {expandedChapter===ch.number && (
                       <div>
+                        {fastDraftMode && (
+                          <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:12 }}>
+                            {(() => {
+                              const batches = [];
+                              for (let i=0; i<scenes.length; i+=fastDraftBatchSize) batches.push(scenes.slice(i, i+fastDraftBatchSize));
+                              return batches.map((batch, bi) => {
+                                const first = batch[0].sceneNumber, last = batch[batch.length-1].sceneNumber;
+                                const isWriting = writingBatch && writingBatch.ch===ch.number && writingBatch.scenes.includes(first);
+                                return (
+                                  <button key={bi} onClick={()=>draftBatch(ch.number, batch)} disabled={!!writingBatch || !bible}
+                                    style={{ padding:"8px 14px", background: (isWriting||!bible)?C.faint:C.gold, color:(isWriting||!bible)?C.muted:C.bg,
+                                             border:"none", borderRadius:8, fontWeight:700, fontSize:12,
+                                             cursor: (writingBatch||!bible)?"wait":"pointer", fontFamily:"Nunito, sans-serif" }}>
+                                    {isWriting ? `Drafting ${batch.length} scenes...` : (first===last ? `⚡ Draft Scene ${first}` : `⚡ Draft Scenes ${first}–${last}`)}
+                                  </button>
+                                );
+                              });
+                            })()}
+                          </div>
+                        )}
                         {scenes.map((scene) => {
                           const key = ch.number+"-"+scene.sceneNumber;
                           const status = sceneStatuses[scene.sceneNumber-1];
@@ -5757,6 +6047,7 @@ function ChapterBuilder({ story, universe, chapterState }) {
                             <SceneCard key={scene.sceneNumber}
                               scene={scene}
                               chapterNum={ch.number}
+                              hideWrite={fastDraftMode}
                               prose={proseMap[scene.sceneNumber]}
                               summary={summaryMap[scene.sceneNumber]}
                               locked={!!sceneLocked[key]}
@@ -6092,9 +6383,7 @@ function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activ
         </div>
       </div>
 
-      <ActivatedPatternsCard patterns={activatedPatterns}/>
-      <MarketDashboard story={story}/>
-
+      {/* Phase 1.5: MarketDashboard + ActivatedPatternsCard moved to Market Intelligence */}
       <SaveBlueprint story={story} universes={universes} activeUniverseId={activeUniverseId} onSaveToUniverse={onSaveToUniverse}/>
       <ChapterBuilder story={story} universe={activeUniverse} chapterState={chapterState}/>
     </div>
@@ -6597,6 +6886,18 @@ export default function App() {
   const streetLitAppliedRef = useRef(null);
   const suspenseAppliedRef = useRef(null);
 
+  // ── Phase 1.5: genre preset quick-start ──
+  const [selectedPreset, setSelectedPreset] = useState(null);
+  const handlePresetSelect = useCallback((preset) => {
+    setSelectedPreset(preset.id);
+    if (preset.id === "custom" || !preset.lanes) return;
+    setLaneVals({ ...DEFAULT_LANE_VALS, ...preset.lanes });
+    if (preset.tropes) setTropes(preset.tropes);
+    if (preset.heat) setHeat(preset.heat);
+    if (preset.spiceLevel) setSpiceLevel(preset.spiceLevel);
+    if (preset.romanceIntensity) setRomanceIntensity(preset.romanceIntensity);
+  }, []);
+
   // ── Universe Builder state ──
   const [view, setView] = useState("story");              // "story" | "universes" | "universeDetail"
   const [universes, setUniverses] = useState(() => loadUniverses());
@@ -6818,6 +7119,7 @@ export default function App() {
   // ── Chapter/scene state lifted from ChapterBuilder so the active story owns it ──
   const [outline, setOutline] = useState(null);
   const [bible, setBible] = useState(null);
+  const [bibleLocked, setBibleLocked] = useState(false);  // Phase 1.5: bible lock
   const [chapterProse, setChapterProse] = useState({});
   const [chapterReports, setChapterReports] = useState({});
   const [chapterSummaries, setChapterSummaries] = useState({});
@@ -6826,7 +7128,7 @@ export default function App() {
   const [sceneSummaries, setSceneSummaries] = useState({});
   const [sceneLocked, setSceneLocked] = useState({});
   const chapterState = {
-    outline, setOutline, bible, setBible,
+    outline, setOutline, bible, setBible, bibleLocked, setBibleLocked,
     chapterProse, setChapterProse, chapterReports, setChapterReports,
     chapterSummaries, setChapterSummaries,
     chapterSceneCards, setChapterSceneCards, sceneProse, setSceneProse,
@@ -6926,7 +7228,7 @@ export default function App() {
     laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
     setting, city, family, intensity, externalConflict, relationshipObstacle, familyInfluence,
     spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng,
-    blueprint: story, outline, bible, chapterProse, chapterReports, chapterSummaries,
+    blueprint: story, outline, bible, bibleLocked, chapterProse, chapterReports, chapterSummaries,
     chapterSceneCards, sceneProse, sceneSummaries, sceneLocked, bookPackage
   });
 
@@ -6958,7 +7260,7 @@ export default function App() {
     setEroticRomance({...DEFAULT_EROTIC}); eroticAppliedRef.current = null;
     setStreetLitEng({...DEFAULT_STREETLIT}); streetLitAppliedRef.current = null;
     setSuspenseEng({...DEFAULT_SUSPENSE}); suspenseAppliedRef.current = null;
-    setStory(null); setOutline(null); setBible(null);
+    setStory(null); setOutline(null); setBible(null); setBibleLocked(false);
     setChapterProse({}); setChapterReports({}); setChapterSummaries({});
     setChapterSceneCards({}); setSceneProse({}); setSceneSummaries({}); setSceneLocked({});
     setBookPackage(null);
@@ -6983,6 +7285,7 @@ export default function App() {
     streetLitAppliedRef.current = (dominantUrbanEngine(normalize(rec.laneVals || {}), "streetLitEng") || {}).catId || null;
     suspenseAppliedRef.current = (dominantUrbanEngine(normalize(rec.laneVals || {}), "suspenseEng") || {}).catId || null;
     setStory(rec.blueprint ?? null); setOutline(rec.outline ?? null); setBible(rec.bible ?? null);
+    setBibleLocked(rec.bibleLocked ?? !!rec.bible);  // legacy bibles count as locked
     setChapterProse(rec.chapterProse ?? {}); setChapterReports(rec.chapterReports ?? {}); setChapterSummaries(rec.chapterSummaries ?? {});
     setChapterSceneCards(rec.chapterSceneCards ?? {}); setSceneProse(rec.sceneProse ?? {});
     setSceneSummaries(rec.sceneSummaries ?? {}); setSceneLocked(rec.sceneLocked ?? {});
@@ -7100,7 +7403,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStoryId, story, laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
       setting, city, family, intensity, externalConflict, relationshipObstacle, familyInfluence,
-      spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng, outline, bible, chapterProse, chapterReports, chapterSummaries,
+      spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng, outline, bible, bibleLocked, chapterProse, chapterReports, chapterSummaries,
       chapterSceneCards, sceneProse, sceneSummaries, sceneLocked, bookPackage]);
 
   // Hydrate the active story once on mount so a refresh restores your place
@@ -7201,11 +7504,34 @@ export default function App() {
               )
             )}
             {activeSection === "marketIntelligence" && (
-              <ComingSoonSection
-                title="Market Intelligence"
-                icon="📊"
-                description="Live genre trends, comp title performance, KDP category intelligence, and competitive positioning across the Black romance market."
-                features={["Current bestseller heatmap", "Genre-pattern market share trends", "Comp title performance data", "KDP category competition", "Pricing intelligence"]}/>
+              story ? (
+                <div>
+                  <div style={{ color:C.gold, fontSize:11, letterSpacing:2, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>Intelligence</div>
+                  <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:30, fontWeight:700, marginBottom:18 }}>Market Intelligence</div>
+                  <MarketDashboard story={story}/>
+                  <ActivatedPatternsCard patterns={activatedPatterns}/>
+                  <div style={{ padding:"18px 22px", background:C.surface, border:"1px solid "+C.border, borderRadius:14, marginTop:18, marginBottom:18 }}>
+                    <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:12 }}>Publishing Details</div>
+                    {story.marketingAngle && <InfoBlock label="Marketing Angle">{story.marketingAngle}</InfoBlock>}
+                    {story.amazonCategories && <InfoBlock label="Amazon Categories">{Array.isArray(story.amazonCategories)?story.amazonCategories.join(" · "):story.amazonCategories}</InfoBlock>}
+                    {story.readerProfile && <InfoBlock label="Reader Profile">{story.readerProfile}</InfoBlock>}
+                    {story.seriesPotential && <InfoBlock label="Series Potential">{story.seriesPotential}</InfoBlock>}
+                    {story.wordCountTarget && <InfoBlock label="Word Count Target">{story.wordCountTarget}</InfoBlock>}
+                  </div>
+                  <PublishingStudio
+                    story={story}
+                    outline={null}
+                    bible={null}
+                    packageData={bookPackage}
+                    generating={generatingPackage}
+                    progress={packageProgress}
+                    onGenerate={()=>generatePublishingPackage(null, null)}
+                    onExport={exportPublishingPackage}
+                    error={packageErr}/>
+                </div>
+              ) : (
+                <NeedsStoryEmpty section="Market Intelligence" onGoToBuilder={()=>goToSection("newStory")}/>
+              )
             )}
             {activeSection === "settings" && (
               <ComingSoonSection
@@ -7258,7 +7584,8 @@ export default function App() {
           <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:22, fontWeight:600, marginBottom:14 }}>
             What kind of story is this?
           </div>
-          {LANES.map(l => (
+          <GenrePresetBar selected={selectedPreset} onSelect={handlePresetSelect}/>
+          {LANES.filter(l => PRIMARY_LANE_IDS.includes(l.id)).map(l => (
             <LaneSlider key={l.id} lane={l} value={laneVals[l.id]} normValue={normalized[l.id]}
               onChange={v => setLaneVals(prev => ({...prev, [l.id]:v}))}/>
           ))}
@@ -7373,6 +7700,16 @@ export default function App() {
 
         {/* SPICE + ROMANCE INTENSITY */}
         <div style={{ marginBottom:22 }}>
+          <div style={{ padding:"16px 18px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10, marginBottom:14 }}>
+            <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:2 }}>
+              Extended Genre Lanes
+            </div>
+            <div style={{ color:C.muted, fontSize:11, marginBottom:10, lineHeight:1.4 }}>Set automatically by presets · fine-tune here</div>
+            {LANES.filter(l => EXTENDED_LANE_IDS.includes(l.id)).map(l => (
+              <LaneSlider key={l.id} lane={l} value={laneVals[l.id]} normValue={normalized[l.id]}
+                onChange={v => setLaneVals(prev => ({...prev, [l.id]:v}))}/>
+            ))}
+          </div>
           <SpiceLevelSelector value={spiceLevel} onChange={setSpiceLevel}/>
           <IntensityProfile value={romanceIntensity} onChange={setRomanceIntensity}/>
           <EroticEngine value={eroticRomance} onChange={setEroticRomance}
