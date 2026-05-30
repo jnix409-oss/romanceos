@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 const FONT_CSS = `@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Nunito:wght@300;400;500;600;700&display=swap');`;
 
@@ -3843,7 +3843,7 @@ function SceneCard({ scene, chapterNum, prose, summary, locked, editing, status,
   const atTarget = wordCount >= target * 0.9;
 
   const [editBuffer, setEditBuffer] = useState(prose||"");
-  React.useEffect(()=>{ if (editing) setEditBuffer(prose||""); }, [editing, prose]);
+  useEffect(()=>{ if (editing) setEditBuffer(prose||""); }, [editing, prose]);
 
   const statusColors = {
     notStarted: { c:C.muted, bg:"transparent", label:"NOT STARTED" },
@@ -4024,7 +4024,7 @@ function ChapterCard({ ch, prose, report, summary, editing, onWrite, onContinue,
   const atTarget = wordCount >= target * 0.95;
 
   const [editBuffer, setEditBuffer] = useState(prose||"");
-  React.useEffect(()=>{ if (editing) setEditBuffer(prose||""); }, [editing, prose]);
+  useEffect(()=>{ if (editing) setEditBuffer(prose||""); }, [editing, prose]);
 
   // Status badge color
   const statusColor = report ? (report.status==="PASS"?"#2D8B7A":report.status==="WARNING"?"#B07A1F":"#B8342D") : null;
