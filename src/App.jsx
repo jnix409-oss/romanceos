@@ -1213,7 +1213,7 @@ async function generateChapterOutline(story, opts) {
     "continuityNotes (1 short phrase, max 14 words — what MUST be tracked from this chapter into future chapters: a clue planted, a relational shift, an open thread)"
   ].join("\n");
 
-  return await apiCallJSON(SYS_STORY, user, Math.max(3000, chapterCount * 180));
+  return await apiCallJSON(SYS_STORY, user, Math.max(4500, chapterCount * 280));
 }
 
 // ── Story Bible System ───────────────────────────────────────
@@ -1742,7 +1742,7 @@ async function generateSceneCards(story, outline, chapterNum, bible, opts) {
     "  transitionToNextScene (max 10 words — how we get from this scene to the next, e.g. 'time jump, same evening' or 'POV shift to hero')"
   ].filter(Boolean).join("\n");
 
-  return await apiCallJSON(SYS_BIBLE, user, Math.max(2500, sceneCount * 600));
+  return await apiCallJSON(SYS_BIBLE, user, Math.max(3500, sceneCount * 850));
 }
 
 // Write the prose for a single scene
@@ -5025,7 +5025,7 @@ function ChapterBuilder({ story, universe }) {
             ✦ Chapter Builder · Editor Loop
           </div>
           <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:22, fontWeight:600 }}>
-            12-Chapter Architecture
+            Chapter Architecture
           </div>
         </div>
         {!outline && (
@@ -5033,7 +5033,7 @@ function ChapterBuilder({ story, universe }) {
             style={{ padding:"10px 18px", background:loadingOutline?C.faint:C.gold, color:loadingOutline?C.muted:C.bg,
                      border:"none", borderRadius:8, fontWeight:700, fontSize:13, cursor:loadingOutline?"wait":"pointer",
                      fontFamily:"Nunito, sans-serif" }}>
-            {loadingOutline ? "Architecting..." : "Step 1 · Generate 12-Chapter Outline"}
+            {loadingOutline ? "Architecting..." : "Step 1 · Generate Chapter Outline"}
           </button>
         )}
         {outline && !bible && (
@@ -5079,7 +5079,7 @@ function ChapterBuilder({ story, universe }) {
         <div style={{ marginTop:bible?22:0 }}>
           {!bible && (
             <div style={{ padding:"12px 14px", background:C.bg, border:"1px dashed "+C.amber, borderRadius:8, marginBottom:14, color:C.amber, fontSize:12, lineHeight:1.5 }}>
-              💡 Initialize the Story Bible above before writing chapters. The bible enforces character consistency, timeline integrity, and plot thread tracking across all 12 chapters.
+              💡 Initialize the Story Bible above before writing chapters. The bible enforces character consistency, timeline integrity, and plot thread tracking across every chapter.
             </div>
           )}
           {outline.chapters.map((ch, idx) => {
