@@ -843,7 +843,7 @@ function scoreForBlend(arch, normLanes) {
     community:   {Ch:1.0, E:0.5, R:0.3},
     luxury:      {P:1.0, W:1.0, E:-0.2},
     family:      {P:0.5, W:0.5, R:0.7, Ch:0.5},
-    urban:       {R:1.0, P:0.5, Ch:0.5},
+    urban:       {P:1.0, W:0.7, R:1.0, Ch:0.4, E:-0.2}, // power + wealth + loyalty (empire/hustler/street-legit); penalize soft high-E archetypes
     reinvention: {E:0.6, P:0.2, Ch:0.3},
     suspense:    {P:0.6, R:0.6, E:-0.3},
     faith:       {Ch:1.0, E:0.5, R:0.3},
@@ -855,6 +855,15 @@ function scoreForBlend(arch, normLanes) {
     const pct = normLanes[lane] / 100;
     score += pct * ((w.P||0)*arch.P + (w.W||0)*arch.W + (w.E||0)*arch.E + (w.R||0)*arch.R + (w.Ch||0)*arch.Ch);
   }
+  // ── Urban Drama category affinity: attribute scores alone can't tell an
+  //    empire king from a same-stat corporate mogul. When the urban lane is
+  //    weighted, lift archetypes that actually inhabit the urban-drama world
+  //    (power, loyalty, danger), scaled by the urban blend share ──
+  const urbanAffinity = { "Urban Romance":1.0, "Protector":0.8, "Family Empire":0.8, "Romantic Suspense":0.6, "Family Saga":0.5, "Entrepreneur":0.3 };
+  if (normLanes.urban && urbanAffinity[arch.cat]) {
+    score += (normLanes.urban / 100) * 6 * urbanAffinity[arch.cat];
+  }
+
   if (arch.tags.includes("top")) score += 0.3;
   if (arch.tags.includes("grow")) score += 0.2;
   if (arch.tags.includes("fresh")) score += 0.15;
