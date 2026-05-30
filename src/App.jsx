@@ -22,6 +22,10 @@ const LANES = [
   { id:"reinvention", label:"Reinvention Romance",         color:"#30A888", desc:"Midlife, career change, divorce, starting over" },
   { id:"suspense",    label:"Romantic Suspense",           color:"#4888C8", desc:"Danger, secrets, investigations alongside love" },
   { id:"faith",       label:"Faith & Purpose",             color:"#C8A030", desc:"Calling, spiritual growth, moral dilemmas" },
+  { id:"eroticUrban",  label:"Erotic Urban Romance",        color:"#9B2D4F", desc:"Desire, chemistry, fantasy, sexual confidence, intimate transformation" },
+  { id:"sexyContemp",  label:"Sexy Contemporary Black Romance", color:"#C0607A", desc:"Modern love, chemistry, grown conversations, warmth, emotional heat" },
+  { id:"eroticDrama",  label:"Erotic Urban Drama",          color:"#C0303A", desc:"Passion meets loyalty, jealousy, betrayal, possessive love, volatility" },
+  { id:"luxuryErotic", label:"Luxury Erotic Black Romance", color:"#B07A2A", desc:"Wealth, power couples, sensual fantasy, status, aspirational desire" },
 ];
 
 const TROPES = [
@@ -81,6 +85,132 @@ const INTENSITY_DIMENSIONS = [
 ];
 
 const DEFAULT_INTENSITY = { attractionIntensity:3, emotionalIntimacy:3, physicalAffection:2, relationshipFocus:3 };
+
+// ── Erotic Romance Engine (W3) ─────────────────────────────────
+// A first-class engine, independent of Spice Level. Spice = content/heat
+// intensity; Erotic Romance = relationship/desire/chemistry/intimacy dynamics.
+// Each dimension 1-5. A story can have high Erotic Romance + low Spice, etc.
+const EROTIC_DIMENSIONS = [
+  { key:"desireIntensity", label:"Desire Intensity",
+    desc:"How strongly longing and wanting drive the characters",
+    scale:["Faint longing","Simmering want","Strong desire","Consuming desire","All-consuming hunger"] },
+  { key:"chemistryFrequency", label:"Chemistry Frequency",
+    desc:"How often charged, electric moments appear on the page",
+    scale:["Rare sparks","Occasional charge","Frequent chemistry","Constant pull","Magnetic throughout"] },
+  { key:"fantasyFulfillment", label:"Fantasy Fulfillment",
+    desc:"How much the story delivers aspirational romantic/sensual fantasy",
+    scale:["Grounded","Lightly aspirational","Fantasy-leaning","Fantasy-forward","Full fantasy escape"] },
+  { key:"emotionalVulnerability", label:"Emotional Vulnerability",
+    desc:"How exposed and open the characters let themselves become",
+    scale:["Guarded","Cautious","Opening up","Deeply vulnerable","Fully laid bare"] },
+  { key:"relationshipIntensity", label:"Relationship Intensity",
+    desc:"How all-consuming the central relationship feels",
+    scale:["Casual","Building","Intense","All-in","Obsessive devotion"] },
+  { key:"forbiddenFactor", label:"Forbidden Factor",
+    desc:"How taboo, secret, or off-limits the attraction is",
+    scale:["No barrier","Mild taboo","Forbidden pull","High-stakes secret","Truly off-limits"] },
+  { key:"selfDiscovery", label:"Self Discovery",
+    desc:"How much the heroine reclaims confidence, desire, and identity",
+    scale:["Static","Slight growth","Reawakening","Major reclamation","Full transformation"] },
+  { key:"sensualAtmosphere", label:"Sensual Atmosphere",
+    desc:"How sensory, charged, and atmospheric the prose feels",
+    scale:["Plain","Warm","Sensual","Heady","Saturated with sensuality"] },
+  { key:"romanticRisk", label:"Romantic Risk",
+    desc:"How much the characters gamble emotionally for love/desire",
+    scale:["Safe","Cautious risk","Real risk","High stakes","Everything on the line"] },
+  { key:"intimacyAsCharacterGrowth", label:"Intimacy as Character Growth",
+    desc:"How much intimate moments change who the characters are",
+    scale:["Decorative","Minor","Meaningful","Transformative","Central to the arc"] }
+];
+
+const DEFAULT_EROTIC = { desireIntensity:3, chemistryFrequency:3, fantasyFulfillment:3, emotionalVulnerability:3, relationshipIntensity:3, forbiddenFactor:2, selfDiscovery:3, sensualAtmosphere:3, romanticRisk:3, intimacyAsCharacterGrowth:3 };
+
+// Category calibration profiles — selecting one of these lanes auto-populates
+// the engines from these baselines (still manually adjustable afterward).
+// Authors are MARKET-PATTERN references only; never imitate or name them.
+const EROTIC_CATEGORIES = {
+  eroticUrban: {
+    name:"Erotic Urban Romance",
+    readerPromise:"A sensual, emotionally charged romance centered on desire, chemistry, fantasy, confidence, relationship intensity, and romantic transformation.",
+    tone:["sensual","passionate","emotionally intense","relationship-driven","confident","grown"],
+    pacing:"moderate to fast",
+    coreThemes:["desire","chemistry","sexual confidence","fantasy fulfillment","forbidden attraction","self-discovery","healing through intimacy","relationship transformation","emotional vulnerability","trust"],
+    characterTypes:["confident heroine rediscovering desire","woman healing after betrayal","successful professional with hidden loneliness","charismatic love interest","emotionally guarded alpha hero","artist or creative hero","old flame with unfinished tension"],
+    conflicts:["forbidden attraction","old flame resurfaces","relationship after betrayal","desire conflicts with reputation","friends become lovers","emotional walls block intimacy","secret relationship","independence vs commitment","public image vs private desire","trust after heartbreak"],
+    settings:["Atlanta nightlife","luxury condo","creative studio","professional conference","private resort","upscale lounge","spa or wellness retreat","music industry","destination getaway"],
+    sceneExpectations:["frequent romantic tension","charged dialogue","sensory atmosphere","private moments with emotional stakes","slow escalation of desire","desire tied to character growth","romance scenes that change the relationship dynamic"],
+    avoid:["spice replacing plot","flat chemistry","intimacy without emotional consequence","low relationship stakes"],
+    erotic:{ desireIntensity:5, chemistryFrequency:5, fantasyFulfillment:5, emotionalVulnerability:4, relationshipIntensity:5, forbiddenFactor:3, selfDiscovery:4, sensualAtmosphere:5, romanticRisk:4, intimacyAsCharacterGrowth:4 },
+    romance:{ attractionIntensity:5, emotionalIntimacy:4, physicalAffection:5, relationshipFocus:5 },
+    spice:5
+  },
+  sexyContemp: {
+    name:"Sexy Contemporary Black Romance",
+    readerPromise:"A modern Black love story with strong chemistry, emotional connection, humor, grown conversations, and satisfying romantic progression.",
+    tone:["modern","romantic","warm","sexy","emotionally grounded","conversational"],
+    pacing:"moderate",
+    coreThemes:["modern love","chemistry","emotional maturity","friendship","trust","communication","healing","Black joy"],
+    characterTypes:["creative professional","single parent","entrepreneur","divorced heroine","emotionally intelligent hero","best friend love interest","small business owner","writer","chef","teacher"],
+    conflicts:["fear of commitment","work-life imbalance","old heartbreak","family expectations","friends-to-lovers tension","miscommunication with real stakes","career transition","second chance romance"],
+    settings:["Black-owned business","creative studio","family gathering","neighborhood spot","wedding","small business"],
+    sceneExpectations:["natural charged dialogue","warm chemistry","grown conversations","emotional honesty","romance central to the plot"],
+    avoid:["manufactured drama","flat chemistry","spice without connection","low relationship stakes"],
+    erotic:{ desireIntensity:4, chemistryFrequency:4, fantasyFulfillment:3, emotionalVulnerability:4, relationshipIntensity:4, forbiddenFactor:2, selfDiscovery:3, sensualAtmosphere:4, romanticRisk:3, intimacyAsCharacterGrowth:4 },
+    romance:{ attractionIntensity:4, emotionalIntimacy:4, physicalAffection:4, relationshipFocus:5 },
+    spice:4
+  },
+  eroticDrama: {
+    name:"Erotic Urban Drama",
+    readerPromise:"A sexy, high-drama relationship story where passion, loyalty, betrayal, jealousy, family pressure, and desire collide.",
+    tone:["sexy","dramatic","possessive","emotionally volatile","high-chemistry","urban"],
+    pacing:"fast to moderate",
+    coreThemes:["passion","betrayal","jealousy","loyalty","family pressure","dangerous attraction","trust","possessive love"],
+    characterTypes:["possessive protective hero","woman recovering from betrayal","ambitious heroine","single mother with guarded heart","hood-adjacent businessman","dangerous ex","best friend with hidden desire","celebrity or influencer heroine"],
+    conflicts:["dangerous ex returns","secret relationship","relationship betrayal","love triangle","family interference","public humiliation","jealousy spiral","forbidden attraction","protective hero oversteps","trust after heartbreak"],
+    settings:["upscale lounge","family event","city nightlife","luxury apartment","business front","influencer world"],
+    sceneExpectations:["volatile high-chemistry moments","possessive tension","loyalty and betrayal beats","emotionally charged confrontations","passion tied to stakes"],
+    avoid:["soft low-stakes misunderstandings as the core","flat chemistry","drama without emotional truth"],
+    erotic:{ desireIntensity:5, chemistryFrequency:5, fantasyFulfillment:4, emotionalVulnerability:3, relationshipIntensity:5, forbiddenFactor:4, selfDiscovery:3, sensualAtmosphere:5, romanticRisk:5, intimacyAsCharacterGrowth:3 },
+    romance:{ attractionIntensity:5, emotionalIntimacy:3, physicalAffection:5, relationshipFocus:5 },
+    urbanDrama:{ loyaltyIntensity:4, powerStatusIntensity:3, dangerLevel:2, relationshipVolatility:5, familyDramaIntensity:4, betrayalRisk:4, consequenceLevel:4, moralityScale:3 },
+    spice:5
+  },
+  luxuryErotic: {
+    name:"Luxury Erotic Black Romance",
+    readerPromise:"A sensual, aspirational romance centered on wealth, confidence, desire, power couples, emotional risk, and romantic fantasy fulfillment.",
+    tone:["luxurious","sensual","aspirational","high-status","polished","romantic"],
+    pacing:"moderate",
+    coreThemes:["wealth","desire","confidence","power couples","luxury fantasy","emotional risk","status","public image vs private passion"],
+    characterTypes:["billionaire CEO","luxury brand founder","celebrity-adjacent heroine","private chef","fashion designer","entertainment mogul","real estate developer","wealthy divorcee","power couple in crisis"],
+    conflicts:["public scandal","forbidden workplace attraction","fake relationship becomes real","status gap","privacy vs public image","family pressure","old betrayal resurfaces","desire threatens reputation"],
+    settings:["penthouse","private jet","destination getaway","luxury brand HQ","gala","upscale resort"],
+    sceneExpectations:["polished sensual atmosphere","high-status settings","power-couple tension","fantasy fulfillment with emotional risk","desire that threatens reputation"],
+    avoid:["gaudy materialism without feeling","flat chemistry","status without emotional stakes"],
+    erotic:{ desireIntensity:5, chemistryFrequency:4, fantasyFulfillment:5, emotionalVulnerability:4, relationshipIntensity:4, forbiddenFactor:3, selfDiscovery:3, sensualAtmosphere:5, romanticRisk:4, intimacyAsCharacterGrowth:4 },
+    romance:{ attractionIntensity:5, emotionalIntimacy:4, physicalAffection:5, relationshipFocus:5 },
+    urbanDrama:{ loyaltyIntensity:3, powerStatusIntensity:5, dangerLevel:1, relationshipVolatility:3, familyDramaIntensity:3, betrayalRisk:3, consequenceLevel:3, moralityScale:2 },
+    spice:5
+  }
+};
+const EROTIC_LANE_IDS = Object.keys(EROTIC_CATEGORIES);
+
+// Dominant erotic category in a normalized blend (highest erotic lane > 0), or null
+function dominantEroticCategory(normLanes) {
+  let best = null, bestPct = 0;
+  for (const id of EROTIC_LANE_IDS) {
+    const p = normLanes[id] || 0;
+    if (p > 0 && p > bestPct) { best = id; bestPct = p; }
+  }
+  return best ? { id: best, pct: bestPct } : null;
+}
+
+// Compact one-line erotic-engine prompt fragment for scene/prose generation
+function eroticLine(er) {
+  if (!er) return "";
+  const raised = EROTIC_DIMENSIONS.filter(d => (er[d.key]||3) >= 4).map(d => d.label + " " + er[d.key] + "/5");
+  if (!raised.length) return "";
+  return "Erotic Romance engine (relationship/desire/chemistry/intimacy dynamics — INDEPENDENT of spice, which controls explicitness): " + raised.join(", ") + ". Drive chemistry, longing, and intimate stakes accordingly; tie intimacy to character growth.";
+}
 
 // ── Pattern Database Calibration ───────────────────────────────
 // Per genre-pattern defaults — when patterns activate from blended lanes,
@@ -847,6 +977,10 @@ function scoreForBlend(arch, normLanes) {
     reinvention: {E:0.6, P:0.2, Ch:0.3},
     suspense:    {P:0.6, R:0.6, E:-0.3},
     faith:       {Ch:1.0, E:0.5, R:0.3},
+    eroticUrban:  {E:0.8, R:0.4, Ch:0.3, P:0.3}, // desire + emotional openness
+    sexyContemp:  {E:1.0, Ch:0.5, R:0.3},        // emotional, modern, community
+    eroticDrama:  {R:0.9, P:0.6, E:0.4, Ch:0.4}, // possessive/protective, charged
+    luxuryErotic: {P:1.0, W:1.0, E:0.2},         // wealth + power, sensual
   };
   let score = 0;
   for (const lane in normLanes) {
@@ -974,7 +1108,7 @@ const SYS_CHAPTER = "You are a Black romance novelist writing in the style of Ke
 async function generateBlueprint(opts) {
   const { laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
           setting, city, family, intensity, externalConflict, relationshipObstacle,
-          familyInfluence, spiceLevel, romanceIntensity, universe } = opts;
+          familyInfluence, spiceLevel, romanceIntensity, eroticRomance, universe } = opts;
   const norm = normalize(laneVals);
   const blend = LANES.filter(l=>norm[l.id]>0).map(l=>l.label+": "+norm[l.id]+"%").join(", ");
   const heatLabel = HEAT[heat-1].label;
@@ -1108,6 +1242,38 @@ async function generateBlueprint(opts) {
     ].join("\n");
   }
 
+  // ── Erotic Romance Engine + category calibration ──
+  let eroticCtx = "";
+  const er = eroticRomance || DEFAULT_EROTIC;
+  const eCat = dominantEroticCategory(norm);
+  const eroticActive = !!eCat || EROTIC_DIMENSIONS.some(d => (er[d.key]||3) >= 4);
+  if (eroticActive) {
+    const lines = ["", "EROTIC ROMANCE ENGINE (each 1-5 — relationship / desire / chemistry / intimacy dynamics; INDEPENDENT of Spice Level, which alone governs explicit content/heat):"];
+    EROTIC_DIMENSIONS.forEach(d => lines.push("  " + d.label + ": " + (er[d.key]||3) + "/5 (" + d.scale[(er[d.key]||3)-1] + ")"));
+    lines.push("Use these to drive longing, chemistry, and intimate stakes — NOT to add explicit content. A story can be high Erotic Romance with low spice (tension-forward) or high spice.");
+    if (eCat) {
+      const cat = EROTIC_CATEGORIES[eCat.id];
+      lines.push("");
+      lines.push(cat.name.toUpperCase() + " CALIBRATION — DOMINANT (this category at " + eCat.pct + "%).");
+      lines.push("Reader promise: " + cat.readerPromise);
+      lines.push("Tone: " + cat.tone.join(", ") + ". Pacing: " + cat.pacing + ".");
+      lines.push("Core themes: " + cat.coreThemes.join(", ") + ".");
+      lines.push("Character types that live here: " + cat.characterTypes.slice(0,8).join(", ") + ".");
+      lines.push("Typical conflicts: " + cat.conflicts.slice(0,8).join(", ") + ".");
+      lines.push("Settings: " + cat.settings.slice(0,6).join(", ") + ".");
+      lines.push("Scene expectations: " + cat.sceneExpectations.join("; ") + ".");
+      lines.push("Avoid: " + cat.avoid.join("; ") + ".");
+      if (eCat.id === "eroticUrban" && eCat.pct >= 40) {
+        lines.push("Because Erotic Urban Romance is dominant (>=40%): increase chemistry frequency and romantic tension; make relationship transformation central; tie desire to character growth; keep romance scenes meaningful to the plot; prioritize emotionally charged private moments; do not make danger the main driver unless blended with suspense.");
+      }
+      if (eCat.id === "eroticDrama" && eCat.pct >= 40) {
+        lines.push("Because Erotic Urban Drama is dominant (>=40%): increase relationship volatility, betrayal risk, loyalty pressure, and possessive/protective dynamics; keep chemistry and emotional conflict high; use family pressure and public/private relationship tension.");
+      }
+    }
+    lines.push("MANDATE: chemistry appears early and creates story tension; intimacy changes the relationship; desire connects to emotional growth; the romance stays central; never let spice replace plot. Reference authors are MARKET POSITIONING ONLY — never imitate a voice, scene, title, or plot, and never name an author in the output.");
+    eroticCtx = lines.join("\n");
+  }
+
   // ── External conflict: explicit or bestseller-steered ──
   let conflictCtx;
   if (externalConflict) {
@@ -1153,6 +1319,7 @@ async function generateBlueprint(opts) {
     universeCtx,
     patternCtx,
     urbanDramaCtx,
+    eroticCtx,
     "",
     "Return a compact JSON object. KEEP EVERY VALUE SHORT — no long descriptions.",
     "Use these exact keys with these length limits:",
@@ -1190,6 +1357,7 @@ async function generateBlueprint(opts) {
     universeCtx,
     patternCtx,
     urbanDramaCtx,
+    eroticCtx,
     "",
     "Return a compact JSON object. KEEP EVERY VALUE SHORT — no long descriptions.",
     "Use these exact keys with these length limits:",
@@ -1743,7 +1911,7 @@ async function generateSceneCards(story, outline, chapterNum, bible, opts) {
 
   const bibleSlice = bibleContextForChapter(bible, chapterNum, outline);
   const spiceCtx = o.spiceLevel ? "Spice level: "+o.spiceLevel+"/5 ("+SPICE_LEVELS[o.spiceLevel-1].label+")" : "";
-  const intensityCtx = o.romanceIntensity ? "Romance intensity: attraction "+o.romanceIntensity.attractionIntensity+"/5, emotional "+o.romanceIntensity.emotionalIntimacy+"/5, physical "+o.romanceIntensity.physicalAffection+"/5, focus "+o.romanceIntensity.relationshipFocus+"/5" : "";
+  const intensityCtx = (o.romanceIntensity ? "Romance intensity: attraction "+o.romanceIntensity.attractionIntensity+"/5, emotional "+o.romanceIntensity.emotionalIntimacy+"/5, physical "+o.romanceIntensity.physicalAffection+"/5, focus "+o.romanceIntensity.relationshipFocus+"/5" : "") + (eroticLine(o.eroticRomance) ? "\n"+eroticLine(o.eroticRomance) : "");
 
   const user = [
     "BOOK: "+story.title,
@@ -1804,7 +1972,7 @@ async function writeScene(story, outline, chapterNum, sceneNumber, bible, scene,
   const futureSceneBriefs = chapterScenesSoFar.filter(s=>s.sceneNumber > sceneNumber).slice(0,2).map(s=>"Scene "+s.sceneNumber+": "+(s.scenePurpose||"")).join(" · ");
 
   const spiceCtx = o.spiceLevel ? "Spice level: "+o.spiceLevel+"/5 ("+SPICE_LEVELS[o.spiceLevel-1].label+") — "+SPICE_LEVELS[o.spiceLevel-1].summary : "";
-  const intensityCtx = o.romanceIntensity ? "Romance intensity dimensions — attraction "+o.romanceIntensity.attractionIntensity+"/5, emotional "+o.romanceIntensity.emotionalIntimacy+"/5, physical "+o.romanceIntensity.physicalAffection+"/5, focus "+o.romanceIntensity.relationshipFocus+"/5. Compose this scene's beats accordingly." : "";
+  const intensityCtx = (o.romanceIntensity ? "Romance intensity dimensions — attraction "+o.romanceIntensity.attractionIntensity+"/5, emotional "+o.romanceIntensity.emotionalIntimacy+"/5, physical "+o.romanceIntensity.physicalAffection+"/5, focus "+o.romanceIntensity.relationshipFocus+"/5. Compose this scene's beats accordingly." : "") + (eroticLine(o.eroticRomance) ? "\n"+eroticLine(o.eroticRomance) : "");
 
   const user = [
     "BOOK: "+story.title,
@@ -1952,6 +2120,7 @@ function publishingStoryContext(story, outline, bible) {
     story.relationshipObstacleSummary ? "RELATIONSHIP OBSTACLE: "+story.relationshipObstacleSummary : "",
     spiceLabel ? "Spice level: "+story.spiceLevel+"/5 ("+spiceLabel+")" : "",
     ri.attractionIntensity ? "Romance intensity dims: attraction "+ri.attractionIntensity+"/5 · emotional "+ri.emotionalIntimacy+"/5 · physical "+ri.physicalAffection+"/5 · focus "+ri.relationshipFocus+"/5" : "",
+    eroticLine(story.eroticRomance),
     bible && bible.world ? "World/Tone: "+bible.world.tone+" · Setting: "+bible.world.setting : ""
   ].filter(Boolean).join("\n");
 }
@@ -2368,7 +2537,7 @@ function saveActiveStoryId(id) {
 function newStoryId() { return "story_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
 // Builder defaults — single source of truth for fresh stories + reset + progress detection
-const DEFAULT_LANE_VALS = { healing:5, community:0, luxury:7, family:0, urban:0, reinvention:0, suspense:0, faith:0 };
+const DEFAULT_LANE_VALS = { healing:5, community:0, luxury:7, family:0, urban:0, reinvention:0, suspense:0, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:0 };
 const DEFAULT_TROPES = ["Enemies to Lovers","Family Empire"];
 
 function freshStoryRecord(id) {
@@ -2379,6 +2548,7 @@ function freshStoryRecord(id) {
     heroineArch:null, heroArch:null, heroineWound:null, heroWound:null,
     setting:null, city:null, family:null, intensity:3, externalConflict:null,
     relationshipObstacle:null, familyInfluence:7, spiceLevel:2, romanceIntensity:DEFAULT_INTENSITY,
+    eroticRomance:{...DEFAULT_EROTIC},
     blueprint:null, outline:null, bible:null, chapterProse:{}, chapterReports:{},
     chapterSummaries:{}, chapterSceneCards:{}, sceneProse:{}, sceneSummaries:{}, sceneLocked:{}, bookPackage:null
   };
@@ -3134,6 +3304,51 @@ function IntensityProfile({ value, onChange }) {
               <div style={{ color:C.muted, fontSize:10, fontStyle:"italic", marginTop:2, textAlign:"center" }}>
                 {dim.scale[v-1]}
               </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Erotic Romance Engine UI (W3) ──────────────────────────────
+function EroticEngine({ value, onChange, categoryName, onApplyCategory }) {
+  return (
+    <div style={{ padding:"16px 18px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10, marginBottom:14 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10, marginBottom:12 }}>
+        <div>
+          <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>
+            🔥 Erotic Romance Engine
+          </div>
+          <div style={{ color:C.muted, fontSize:11, marginTop:2, lineHeight:1.4 }}>
+            Relationship, desire, chemistry & intimacy dynamics — independent of Spice Level (which controls heat/content). High Erotic Romance can pair with any spice level.
+          </div>
+        </div>
+        {categoryName && onApplyCategory && (
+          <button onClick={onApplyCategory}
+            style={{ padding:"6px 11px", background:"transparent", color:C.gold, border:"1px solid "+C.gold,
+                     borderRadius:7, fontSize:10, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap", fontFamily:"Nunito, sans-serif" }}>
+            ↻ {categoryName} baseline
+          </button>
+        )}
+      </div>
+      <div style={{ display:"grid", gap:14 }}>
+        {EROTIC_DIMENSIONS.map(dim => {
+          const v = value[dim.key] || 3;
+          return (
+            <div key={dim.key}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:4 }}>
+                <div>
+                  <div style={{ color:C.text, fontSize:12, fontWeight:600 }}>{dim.label}</div>
+                  <div style={{ color:C.muted, fontSize:10, lineHeight:1.4 }}>{dim.desc}</div>
+                </div>
+                <div style={{ color:C.gold, fontFamily:"Cormorant Garamond, serif", fontSize:18, fontWeight:700, minWidth:30, textAlign:"right" }}>{v}</div>
+              </div>
+              <input type="range" min={1} max={5} value={v}
+                onChange={e=>onChange({...value, [dim.key]: +e.target.value})}
+                style={{ width:"100%", accentColor:C.gold, height:6 }}/>
+              <div style={{ color:C.muted, fontSize:10, fontStyle:"italic", marginTop:2, textAlign:"center" }}>{dim.scale[v-1]}</div>
             </div>
           );
         })}
@@ -4964,7 +5179,8 @@ function ChapterBuilder({ story, universe, chapterState }) {
     try {
       const result = await generateSceneCards(story, outline, chapterNum, bible, {
         spiceLevel: story.spiceLevel || 2,
-        romanceIntensity: story.romanceIntensity || DEFAULT_INTENSITY
+        romanceIntensity: story.romanceIntensity || DEFAULT_INTENSITY,
+        eroticRomance: story.eroticRomance || DEFAULT_EROTIC
       });
       setChapterSceneCards(prev => ({...prev, [chapterNum]: result.scenes || []}));
       setExpandedChapter(chapterNum);
@@ -4984,6 +5200,7 @@ function ChapterBuilder({ story, universe, chapterState }) {
       const text = await writeScene(story, outline, chapterNum, sceneNumber, bible, scene, {
         spiceLevel: story.spiceLevel || 2,
         romanceIntensity: story.romanceIntensity || DEFAULT_INTENSITY,
+        eroticRomance: story.eroticRomance || DEFAULT_EROTIC,
         maxWordsPerGen,
         scenesInChapter: scenes,
         previousSceneSummary: prevSummaryText
@@ -6114,9 +6331,7 @@ function MyStories({ stories, activeStoryId, onOpen, onDuplicate, onDelete, onIm
 }
 
 export default function App() {
-  const [laneVals, setLaneVals] = useState({
-    healing:5, community:0, luxury:7, family:0, urban:0, reinvention:0, suspense:0, faith:0
-  });
+  const [laneVals, setLaneVals] = useState({...DEFAULT_LANE_VALS});
   const [tropes, setTropes] = useState(["Enemies to Lovers","Family Empire"]);
   const [heat, setHeat] = useState(3);
   const [heroineArch, setHeroineArch] = useState(null);
@@ -6138,6 +6353,10 @@ export default function App() {
   // ── Spice + Romance Intensity ──
   const [spiceLevel, setSpiceLevel] = useState(2);
   const [romanceIntensity, setRomanceIntensity] = useState(DEFAULT_INTENSITY);
+
+  // ── W3: Erotic Romance Engine (independent of Spice) ──
+  const [eroticRomance, setEroticRomance] = useState({...DEFAULT_EROTIC});
+  const eroticAppliedRef = useRef(null); // which erotic category baseline is currently reflected
 
   // ── Universe Builder state ──
   const [view, setView] = useState("story");              // "story" | "universes" | "universeDetail"
@@ -6409,12 +6628,13 @@ export default function App() {
         laneVals, tropes, heat, heroineArch, heroArch,
         heroineWound, heroWound, setting, city, family, intensity,
         externalConflict, relationshipObstacle, familyInfluence,
-        spiceLevel, romanceIntensity,
+        spiceLevel, romanceIntensity, eroticRomance,
         universe: activeUniverse
       });
       // Attach spice/intensity to the story object so the scene engine can use them
       s.spiceLevel = spiceLevel;
       s.romanceIntensity = romanceIntensity;
+      s.eroticRomance = eroticRomance;
       setStory(s);
       // W2: if no story is active yet (first load, or after deleting the active
       // story), auto-create story #1 from the current builder state.
@@ -6426,7 +6646,7 @@ export default function App() {
         Object.assign(rec, {
           laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
           setting, city, family, intensity, externalConflict, relationshipObstacle,
-          familyInfluence, spiceLevel, romanceIntensity
+          familyInfluence, spiceLevel, romanceIntensity, eroticRomance
         });
         skipAutosaveRef.current = true;
         setStories(prev => { const next = [rec, ...prev]; saveStories(next); return next; });
@@ -6464,10 +6684,23 @@ export default function App() {
     updatedAt: Date.now(),
     laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
     setting, city, family, intensity, externalConflict, relationshipObstacle, familyInfluence,
-    spiceLevel, romanceIntensity,
+    spiceLevel, romanceIntensity, eroticRomance,
     blueprint: story, outline, bible, chapterProse, chapterReports, chapterSummaries,
     chapterSceneCards, sceneProse, sceneSummaries, sceneLocked, bookPackage
   });
+
+  // W3: apply an erotic category's calibration baseline to the engines
+  const eroticCat = dominantEroticCategory(normalized);
+  const applyEroticCategory = (catId) => {
+    const cat = EROTIC_CATEGORIES[catId];
+    if (!cat) return;
+    eroticAppliedRef.current = catId;
+    // Only the Erotic Romance engine auto-populates. Spice Level and Romance
+    // Intensity stay independent/user-controlled (a story can be high Erotic
+    // Romance + low Spice). The category's recommended heat is conveyed to the
+    // model as guidance via the prompt, not forced onto the controls.
+    setEroticRomance({...cat.erotic});
+  };
 
   const resetBuilderState = () => {
     setLaneVals({...DEFAULT_LANE_VALS}); setTropes([...DEFAULT_TROPES]); setHeat(3);
@@ -6475,6 +6708,7 @@ export default function App() {
     setSetting(null); setCity(null); setFamily(null); setIntensity(3);
     setExternalConflict(null); setRelationshipObstacle(null); setFamilyInfluence(7);
     setSpiceLevel(2); setRomanceIntensity(DEFAULT_INTENSITY);
+    setEroticRomance({...DEFAULT_EROTIC}); eroticAppliedRef.current = null;
     setStory(null); setOutline(null); setBible(null);
     setChapterProse({}); setChapterReports({}); setChapterSummaries({});
     setChapterSceneCards({}); setSceneProse({}); setSceneSummaries({}); setSceneLocked({});
@@ -6493,6 +6727,8 @@ export default function App() {
     setExternalConflict(rec.externalConflict ?? null); setRelationshipObstacle(rec.relationshipObstacle ?? null);
     setFamilyInfluence(rec.familyInfluence ?? 7);
     setSpiceLevel(rec.spiceLevel ?? 2); setRomanceIntensity(rec.romanceIntensity ?? DEFAULT_INTENSITY);
+    setEroticRomance(rec.eroticRomance ?? {...DEFAULT_EROTIC});
+    eroticAppliedRef.current = (dominantEroticCategory(normalize(rec.laneVals || {})) || {}).id || null;
     setStory(rec.blueprint ?? null); setOutline(rec.outline ?? null); setBible(rec.bible ?? null);
     setChapterProse(rec.chapterProse ?? {}); setChapterReports(rec.chapterReports ?? {}); setChapterSummaries(rec.chapterSummaries ?? {});
     setChapterSceneCards(rec.chapterSceneCards ?? {}); setSceneProse(rec.sceneProse ?? {});
@@ -6611,7 +6847,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStoryId, story, laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
       setting, city, family, intensity, externalConflict, relationshipObstacle, familyInfluence,
-      spiceLevel, romanceIntensity, outline, bible, chapterProse, chapterReports, chapterSummaries,
+      spiceLevel, romanceIntensity, eroticRomance, outline, bible, chapterProse, chapterReports, chapterSummaries,
       chapterSceneCards, sceneProse, sceneSummaries, sceneLocked, bookPackage]);
 
   // Hydrate the active story once on mount so a refresh restores your place
@@ -6622,6 +6858,16 @@ export default function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // W3: when the dominant erotic category changes, auto-populate the engines from
+  // its calibration baseline (still manually adjustable afterward).
+  useEffect(() => {
+    const cat = dominantEroticCategory(normalize(laneVals));
+    if (cat && cat.id !== eroticAppliedRef.current) {
+      applyEroticCategory(cat.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [laneVals]);
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"Nunito, sans-serif" }}>
@@ -6873,6 +7119,9 @@ export default function App() {
         <div style={{ marginBottom:22 }}>
           <SpiceLevelSelector value={spiceLevel} onChange={setSpiceLevel}/>
           <IntensityProfile value={romanceIntensity} onChange={setRomanceIntensity}/>
+          <EroticEngine value={eroticRomance} onChange={setEroticRomance}
+            categoryName={eroticCat ? EROTIC_CATEGORIES[eroticCat.id].name : null}
+            onApplyCategory={eroticCat ? (()=>applyEroticCategory(eroticCat.id)) : null}/>
         </div>
 
         {/* PATTERN PREVIEW (live) */}
