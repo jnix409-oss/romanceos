@@ -26,6 +26,8 @@ const LANES = [
   { id:"sexyContemp",  label:"Sexy Contemporary Black Romance", color:"#C0607A", desc:"Modern love, chemistry, grown conversations, warmth, emotional heat" },
   { id:"eroticDrama",  label:"Erotic Urban Drama",          color:"#C0303A", desc:"Passion meets loyalty, jealousy, betrayal, possessive love, volatility" },
   { id:"luxuryErotic", label:"Luxury Erotic Black Romance", color:"#B07A2A", desc:"Wealth, power couples, sensual fantasy, status, aspirational desire" },
+  { id:"streetLit",    label:"Street Lit / Urban Fiction",  color:"#7A2018", desc:"Loyalty, betrayal, ambition, danger, money, survival, revenge, consequences" },
+  { id:"crimeSaga",    label:"Crime Family Saga",           color:"#5A2030", desc:"Legacy, succession, empire, family loyalty, inheritance, secrets, betrayal" },
 ];
 
 const TROPES = [
@@ -193,6 +195,148 @@ const EROTIC_CATEGORIES = {
   }
 };
 const EROTIC_LANE_IDS = Object.keys(EROTIC_CATEGORIES);
+
+// ── Street Lit + Suspense engines (W4) ─────────────────────────
+const STREETLIT_DIMENSIONS = [
+  { key:"survivalPressure", label:"Survival Pressure", desc:"How much characters fight just to stay safe, free, or alive",
+    scale:["Comfortable","Some pressure","Real stakes","Under siege","Life-or-death"] },
+  { key:"empireBuilding", label:"Empire Building", desc:"How central building/holding money, territory, or power is",
+    scale:["None","Side hustle","Growing operation","Major empire","Empire is the spine"] },
+  { key:"betrayalRisk", label:"Betrayal Risk", desc:"How likely someone close turns on them",
+    scale:["Trusting world","Minor doubts","Real risk","Betrayal looms","No one is safe"] },
+  { key:"revengeDrive", label:"Revenge Drive", desc:"How much payback fuels the plot",
+    scale:["None","Simmering","A motive","A mission","Revenge is everything"] },
+  { key:"streetInfluence", label:"Street Influence", desc:"How present the street world, code, and culture is",
+    scale:["Absent","Background","Present","Strong","Saturates the story"] },
+  { key:"dangerLevel", label:"Danger Level", desc:"How dangerous the world is on the page",
+    scale:["Safe","Tense","Dangerous","Deadly","Constant threat"] },
+  { key:"loyaltyIntensity", label:"Loyalty Intensity", desc:"How much loyalty and ride-or-die bonds drive choices",
+    scale:["Loose","Conditional","Strong","Ride-or-die","Loyalty above all"] },
+  { key:"consequenceLevel", label:"Consequence Level", desc:"How real and lasting the fallout of choices is",
+    scale:["Soft","Some cost","Real cost","Heavy fallout","Everything has a price"] },
+  { key:"moralityScale", label:"Morality (Gray)", desc:"How morally gray the choices and characters are",
+    scale:["Clear-cut","Mostly clear","Gray areas","Very gray","Survival morality"] },
+  { key:"cliffhangerFrequency", label:"Cliffhanger Frequency", desc:"How often chapters end on turns, threats, or reveals",
+    scale:["Rare","Occasional","Frequent","Most chapters","Relentless"] }
+];
+const DEFAULT_STREETLIT = { survivalPressure:2, empireBuilding:2, betrayalRisk:2, revengeDrive:2, streetInfluence:2, dangerLevel:2, loyaltyIntensity:3, consequenceLevel:2, moralityScale:2, cliffhangerFrequency:3 };
+
+const SUSPENSE_DIMENSIONS = [
+  { key:"mysteryLevel", label:"Mystery Level", desc:"How much an unanswered question drives the plot",
+    scale:["None","Light","Present","Strong","Central mystery"] },
+  { key:"dangerLevel", label:"Danger Level", desc:"How much physical danger threatens the leads",
+    scale:["Safe","Uneasy","Dangerous","Deadly","Constant threat"] },
+  { key:"conspiracyLevel", label:"Conspiracy Level", desc:"How wide and layered the hidden forces are",
+    scale:["None","A secret","A scheme","A network","Deep conspiracy"] },
+  { key:"psychologicalTension", label:"Psychological Tension", desc:"How much dread, paranoia, and mind-games build",
+    scale:["Calm","Uneasy","Tense","High dread","Paranoid pressure"] },
+  { key:"investigationFocus", label:"Investigation Focus", desc:"How much the plot is uncovering the truth",
+    scale:["None","Minor","Present","Strong","Investigation drives it"] },
+  { key:"twistIntensity", label:"Twist Intensity", desc:"How sharp and frequent the reversals are",
+    scale:["None","Mild","Real twists","Major reversals","Reversal-driven"] }
+];
+const DEFAULT_SUSPENSE = { mysteryLevel:2, dangerLevel:2, conspiracyLevel:2, psychologicalTension:2, investigationFocus:2, twistIntensity:2 };
+
+// Urban-fiction category profiles. Each lane maps to one; selecting it
+// auto-populates whichever engines that category defines. Authors are
+// MARKET-PATTERN references only — never imitate or name them.
+const URBAN_CATEGORIES = {
+  streetLit: {
+    name:"Street Lit / Urban Fiction",
+    readerPromise:"A fast-paced story of loyalty, betrayal, ambition, danger, money, survival, passion, revenge, and consequences.",
+    tone:["raw","intense","dramatic","high-stakes","morally gray"], pacing:"fast and cliffhanger-driven",
+    coreThemes:["loyalty","betrayal","survival","money","power","revenge","secrets","consequences"],
+    characterTypes:["drug kingpin","reformed hustler","club owner","street-legitimate entrepreneur","ride-or-die heroine","ambitious woman caught between worlds","family protector","enforcer","businesswoman with dangerous ties","daughter discovering family secrets"],
+    conflicts:["hidden money","revenge plot","rival crew","dangerous family secret","snitch or blackmail","double life","criminal past resurfaces","family betrayal","empire under attack","loyalty test"],
+    avoid:["soft low-stakes misunderstandings","overly gentle therapy-heavy tone","slow-burn emotional healing as the primary engine unless intentionally blended"],
+    streetLitEng:{ survivalPressure:5, empireBuilding:5, betrayalRisk:5, revengeDrive:4, streetInfluence:5, dangerLevel:5, loyaltyIntensity:5, consequenceLevel:5, moralityScale:5, cliffhangerFrequency:5 },
+    suspenseEng:{ mysteryLevel:3, dangerLevel:5, conspiracyLevel:2, psychologicalTension:4, investigationFocus:2, twistIntensity:5 },
+    romance:{ attractionIntensity:4, emotionalIntimacy:3, physicalAffection:4, relationshipFocus:3 }
+  },
+  crimeSaga: {
+    name:"Crime Family Saga",
+    readerPromise:"A family fights to protect power, money, legacy, and loyalty while secrets threaten to destroy everything.",
+    tone:["strategic","dangerous","dramatic","legacy-driven","betrayal-heavy"], pacing:"fast to moderate with major reversals",
+    coreThemes:["legacy","succession","family loyalty","empire","inheritance","betrayal","secrets"],
+    characterTypes:["family patriarch","family matriarch","reluctant heir","oldest daughter","black sheep son","corporate professional with criminal family ties","wife protecting family secrets","daughter uncovering the truth"],
+    conflicts:["succession battle","family betrayal","hidden heir","business front exposed","law enforcement pressure","rival family","inheritance fight","matriarch secret","child discovers family truth"],
+    avoid:["making the story only about romance","small stakes","family that has no real influence"],
+    streetLitEng:{ survivalPressure:4, empireBuilding:5, betrayalRisk:5, revengeDrive:3, streetInfluence:4, dangerLevel:5, loyaltyIntensity:5, consequenceLevel:5, moralityScale:4, cliffhangerFrequency:5 },
+    romance:{ attractionIntensity:3, emotionalIntimacy:3, physicalAffection:3, relationshipFocus:2 }
+  },
+  urbanSuspense: {
+    name:"Urban Suspense",
+    readerPromise:"A tense, dangerous story where secrets, betrayal, hidden enemies, and survival drive the plot.",
+    tone:["tense","dangerous","twisty","urgent","paranoid"], pacing:"fast",
+    coreThemes:["secrets","survival","hidden enemies","betrayal","danger","truth"],
+    characterTypes:["woman being watched","wrongfully accused protagonist","ex with secrets","journalist","private investigator","survivor with hidden past","family member hiding the truth"],
+    conflicts:["someone is watching","missing person","blackmail","wrongful accusation","hidden enemy","crime coverup","dangerous secret","witness to crime"],
+    avoid:["too much softness","slow cozy pacing","low tension"],
+    streetLitEng:{ survivalPressure:5, empireBuilding:2, betrayalRisk:5, revengeDrive:3, streetInfluence:4, dangerLevel:5, loyaltyIntensity:3, consequenceLevel:5, moralityScale:3, cliffhangerFrequency:5 },
+    suspenseEng:{ mysteryLevel:4, dangerLevel:5, conspiracyLevel:3, psychologicalTension:5, investigationFocus:3, twistIntensity:5 },
+    romance:{ attractionIntensity:2, emotionalIntimacy:2, physicalAffection:2, relationshipFocus:2 }
+  },
+  urbanRomanceDrama: {
+    name:"Urban Romance Drama",
+    readerPromise:"High-emotion romance driven by passion, loyalty, family pressure, betrayal, jealousy, and dramatic relationship stakes.",
+    tone:["sexy","dramatic","emotionally volatile","romantic","possessive"], pacing:"fast to moderate",
+    coreThemes:["passion","loyalty","trust","betrayal","family pressure","chemistry","protective love"],
+    characterTypes:["possessive protective hero","ambitious heroine","single mother","ex with unfinished business","successful entrepreneur","hood-adjacent businessman","woman rebuilding after betrayal"],
+    conflicts:["dangerous ex returns","secret child","family disapproval","relationship betrayal","love triangle","trust issues","public humiliation","jealousy spiral","protective hero crosses a line"],
+    avoid:["too much procedural mystery","too little romance","emotionally flat couple dynamics"],
+    romance:{ attractionIntensity:5, emotionalIntimacy:3, physicalAffection:5, relationshipFocus:5 }
+  },
+  luxuryUrban: {
+    name:"Luxury Urban Romance",
+    readerPromise:"A sexy, aspirational romance filled with wealth, power, passion, status, secrets, and high-drama relationship stakes.",
+    tone:["glamorous","sexy","dramatic","aspirational","high-status"], pacing:"moderate to fast",
+    coreThemes:["wealth","status","image","power couples","ambition","desire","secrets"],
+    characterTypes:["billionaire CEO","entertainment mogul","real estate developer","luxury brand founder","celebrity-adjacent heroine","public-facing power couple","heiress","image consultant"],
+    conflicts:["public scandal","business rivalry","family pressure","fake relationship","enemies to lovers","status gap","image management","hidden past threatens reputation"],
+    avoid:["poverty survival focus unless intentionally blended","low glamour","low chemistry"],
+    romance:{ attractionIntensity:5, emotionalIntimacy:3, physicalAffection:5, relationshipFocus:5 }
+  }
+};
+// Lane → urban category (option A: overlapping categories reuse existing lanes)
+const LANE_TO_URBAN_CATEGORY = { streetLit:"streetLit", crimeSaga:"crimeSaga", suspense:"urbanSuspense", urban:"urbanRomanceDrama", luxury:"luxuryUrban" };
+
+// Highest-weighted lane whose mapped category defines the given engine baseline
+function dominantUrbanEngine(normLanes, engField) {
+  let best = null, bestPct = 0;
+  for (const laneId in LANE_TO_URBAN_CATEGORY) {
+    const cat = URBAN_CATEGORIES[LANE_TO_URBAN_CATEGORY[laneId]];
+    if (cat && cat[engField]) {
+      const p = normLanes[laneId] || 0;
+      if (p > 0 && p > bestPct) { best = { laneId, catId: LANE_TO_URBAN_CATEGORY[laneId], baseline: cat[engField], pct: p }; bestPct = p; }
+    }
+  }
+  return best;
+}
+// Dominant urban category overall (for prompt calibration text)
+function dominantUrbanCategory(normLanes) {
+  let best = null, bestPct = 0;
+  for (const laneId in LANE_TO_URBAN_CATEGORY) {
+    const p = normLanes[laneId] || 0;
+    if (p > 0 && p > bestPct) { best = { id: LANE_TO_URBAN_CATEGORY[laneId], laneId, pct: p }; bestPct = p; }
+  }
+  return best;
+}
+// Street-lit family share of the blend (street lit + crime saga lanes)
+function streetLitShare(normLanes) { return (normLanes.streetLit || 0) + (normLanes.crimeSaga || 0); }
+
+// Compact prompt fragments for scene/prose generation
+function streetLitLine(sl) {
+  if (!sl) return "";
+  const raised = STREETLIT_DIMENSIONS.filter(d => (sl[d.key]||2) >= 4).map(d => d.label + " " + sl[d.key] + "/5");
+  if (!raised.length) return "";
+  return "Street Lit engine (loyalty/danger/betrayal/empire stakes): " + raised.join(", ") + ". Keep external stakes, consequences, and cliffhanger pressure high.";
+}
+function suspenseLine(sp) {
+  if (!sp) return "";
+  const raised = SUSPENSE_DIMENSIONS.filter(d => (sp[d.key]||2) >= 4).map(d => d.label + " " + sp[d.key] + "/5");
+  if (!raised.length) return "";
+  return "Suspense engine: " + raised.join(", ") + ". Sustain dread, danger, and reversals.";
+}
 
 // Dominant erotic category in a normalized blend (highest erotic lane > 0), or null
 function dominantEroticCategory(normLanes) {
@@ -981,6 +1125,8 @@ function scoreForBlend(arch, normLanes) {
     sexyContemp:  {E:1.0, Ch:0.5, R:0.3},        // emotional, modern, community
     eroticDrama:  {R:0.9, P:0.6, E:0.4, Ch:0.4}, // possessive/protective, charged
     luxuryErotic: {P:1.0, W:1.0, E:0.2},         // wealth + power, sensual
+    streetLit:    {R:1.0, P:0.9, W:0.6, Ch:0.4, E:-0.2}, // loyalty, power, survival; penalize soft
+    crimeSaga:    {P:1.0, W:1.0, R:0.8, Ch:0.5, E:-0.2}, // empire, legacy, family power
   };
   let score = 0;
   for (const lane in normLanes) {
@@ -1108,7 +1254,7 @@ const SYS_CHAPTER = "You are a Black romance novelist writing in the style of Ke
 async function generateBlueprint(opts) {
   const { laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
           setting, city, family, intensity, externalConflict, relationshipObstacle,
-          familyInfluence, spiceLevel, romanceIntensity, eroticRomance, universe } = opts;
+          familyInfluence, spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng, universe } = opts;
   const norm = normalize(laneVals);
   const blend = LANES.filter(l=>norm[l.id]>0).map(l=>l.label+": "+norm[l.id]+"%").join(", ");
   const heatLabel = HEAT[heat-1].label;
@@ -1274,6 +1420,44 @@ async function generateBlueprint(opts) {
     eroticCtx = lines.join("\n");
   }
 
+  // ── Street Lit / Suspense engines + urban-fiction category calibration ──
+  let streetLitCtx = "";
+  const sl = streetLitEng || DEFAULT_STREETLIT;
+  const sp = suspenseEng || DEFAULT_SUSPENSE;
+  const uCat = dominantUrbanCategory(norm);
+  const slPct = streetLitShare(norm);
+  const slActive = STREETLIT_DIMENSIONS.some(d => (sl[d.key]||2) >= 4);
+  const spActive = SUSPENSE_DIMENSIONS.some(d => (sp[d.key]||2) >= 4);
+  if (uCat || slActive || spActive) {
+    const L = [];
+    if (slActive) {
+      L.push("", "STREET LIT ENGINE (each 1-5 — loyalty / danger / betrayal / empire / survival / consequence stakes; independent of romance):");
+      STREETLIT_DIMENSIONS.forEach(d => L.push("  " + d.label + ": " + (sl[d.key]||2) + "/5 (" + d.scale[(sl[d.key]||2)-1] + ")"));
+    }
+    if (spActive) {
+      L.push("", "SUSPENSE ENGINE (each 1-5 — mystery / danger / conspiracy / dread / twists):");
+      SUSPENSE_DIMENSIONS.forEach(d => L.push("  " + d.label + ": " + (sp[d.key]||2) + "/5 (" + d.scale[(sp[d.key]||2)-1] + ")"));
+    }
+    if (uCat) {
+      const cat = URBAN_CATEGORIES[uCat.id];
+      L.push("", cat.name.toUpperCase() + " CALIBRATION — DOMINANT (its lane at " + uCat.pct + "%).");
+      L.push("Reader promise: " + cat.readerPromise);
+      L.push("Tone: " + cat.tone.join(", ") + ". Pacing: " + cat.pacing + ".");
+      L.push("Core themes: " + cat.coreThemes.join(", ") + ".");
+      L.push("Character types that live here: " + cat.characterTypes.slice(0,8).join(", ") + ".");
+      L.push("Typical conflicts: " + cat.conflicts.slice(0,8).join(", ") + ".");
+      L.push("Avoid: " + cat.avoid.join("; ") + ".");
+    }
+    if (slPct >= 60) {
+      L.push("Because Street Lit / Crime Saga is " + slPct + "% of the blend (>=60%): this should read PRIMARILY as street lit / urban fiction. Romance may exist but must not soften the stakes; family, money, danger, survival, betrayal, and power dominate.");
+    } else if (slPct >= 40) {
+      L.push("Because Street Lit / Crime Saga is " + slPct + "% (>=40%): raise danger, betrayal, loyalty, consequence, and street influence; increase cliffhanger frequency; prioritize external conflict; include secrets with real consequences; add morally gray choices; avoid low-stakes misunderstandings.");
+    }
+    L.push("URBAN OUTPUT QUALITY CHECK — ensure present: loyalty pressure, betrayal risk, real consequences, money/power/status stakes, family or street influence, emotionally charged conflict, high-stakes secrets, cliffhanger potential, morally complicated choices.");
+    L.push("Reference authors are MARKET POSITIONING ONLY — never imitate a voice, scene, title, or plot, and never name an author in the output.");
+    streetLitCtx = L.join("\n");
+  }
+
   // ── External conflict: explicit or bestseller-steered ──
   let conflictCtx;
   if (externalConflict) {
@@ -1320,6 +1504,7 @@ async function generateBlueprint(opts) {
     patternCtx,
     urbanDramaCtx,
     eroticCtx,
+    streetLitCtx,
     "",
     "Return a compact JSON object. KEEP EVERY VALUE SHORT — no long descriptions.",
     "Use these exact keys with these length limits:",
@@ -1358,6 +1543,7 @@ async function generateBlueprint(opts) {
     patternCtx,
     urbanDramaCtx,
     eroticCtx,
+    streetLitCtx,
     "",
     "Return a compact JSON object. KEEP EVERY VALUE SHORT — no long descriptions.",
     "Use these exact keys with these length limits:",
@@ -1911,7 +2097,7 @@ async function generateSceneCards(story, outline, chapterNum, bible, opts) {
 
   const bibleSlice = bibleContextForChapter(bible, chapterNum, outline);
   const spiceCtx = o.spiceLevel ? "Spice level: "+o.spiceLevel+"/5 ("+SPICE_LEVELS[o.spiceLevel-1].label+")" : "";
-  const intensityCtx = (o.romanceIntensity ? "Romance intensity: attraction "+o.romanceIntensity.attractionIntensity+"/5, emotional "+o.romanceIntensity.emotionalIntimacy+"/5, physical "+o.romanceIntensity.physicalAffection+"/5, focus "+o.romanceIntensity.relationshipFocus+"/5" : "") + (eroticLine(o.eroticRomance) ? "\n"+eroticLine(o.eroticRomance) : "");
+  const intensityCtx = (o.romanceIntensity ? "Romance intensity: attraction "+o.romanceIntensity.attractionIntensity+"/5, emotional "+o.romanceIntensity.emotionalIntimacy+"/5, physical "+o.romanceIntensity.physicalAffection+"/5, focus "+o.romanceIntensity.relationshipFocus+"/5" : "") + (eroticLine(o.eroticRomance) ? "\n"+eroticLine(o.eroticRomance) : "") + (streetLitLine(o.streetLitEng) ? "\n"+streetLitLine(o.streetLitEng) : "") + (suspenseLine(o.suspenseEng) ? "\n"+suspenseLine(o.suspenseEng) : "");
 
   const user = [
     "BOOK: "+story.title,
@@ -1972,7 +2158,7 @@ async function writeScene(story, outline, chapterNum, sceneNumber, bible, scene,
   const futureSceneBriefs = chapterScenesSoFar.filter(s=>s.sceneNumber > sceneNumber).slice(0,2).map(s=>"Scene "+s.sceneNumber+": "+(s.scenePurpose||"")).join(" · ");
 
   const spiceCtx = o.spiceLevel ? "Spice level: "+o.spiceLevel+"/5 ("+SPICE_LEVELS[o.spiceLevel-1].label+") — "+SPICE_LEVELS[o.spiceLevel-1].summary : "";
-  const intensityCtx = (o.romanceIntensity ? "Romance intensity dimensions — attraction "+o.romanceIntensity.attractionIntensity+"/5, emotional "+o.romanceIntensity.emotionalIntimacy+"/5, physical "+o.romanceIntensity.physicalAffection+"/5, focus "+o.romanceIntensity.relationshipFocus+"/5. Compose this scene's beats accordingly." : "") + (eroticLine(o.eroticRomance) ? "\n"+eroticLine(o.eroticRomance) : "");
+  const intensityCtx = (o.romanceIntensity ? "Romance intensity dimensions — attraction "+o.romanceIntensity.attractionIntensity+"/5, emotional "+o.romanceIntensity.emotionalIntimacy+"/5, physical "+o.romanceIntensity.physicalAffection+"/5, focus "+o.romanceIntensity.relationshipFocus+"/5. Compose this scene's beats accordingly." : "") + (eroticLine(o.eroticRomance) ? "\n"+eroticLine(o.eroticRomance) : "") + (streetLitLine(o.streetLitEng) ? "\n"+streetLitLine(o.streetLitEng) : "") + (suspenseLine(o.suspenseEng) ? "\n"+suspenseLine(o.suspenseEng) : "");
 
   const user = [
     "BOOK: "+story.title,
@@ -2121,6 +2307,8 @@ function publishingStoryContext(story, outline, bible) {
     spiceLabel ? "Spice level: "+story.spiceLevel+"/5 ("+spiceLabel+")" : "",
     ri.attractionIntensity ? "Romance intensity dims: attraction "+ri.attractionIntensity+"/5 · emotional "+ri.emotionalIntimacy+"/5 · physical "+ri.physicalAffection+"/5 · focus "+ri.relationshipFocus+"/5" : "",
     eroticLine(story.eroticRomance),
+    streetLitLine(story.streetLitEng),
+    suspenseLine(story.suspenseEng),
     bible && bible.world ? "World/Tone: "+bible.world.tone+" · Setting: "+bible.world.setting : ""
   ].filter(Boolean).join("\n");
 }
@@ -2537,7 +2725,7 @@ function saveActiveStoryId(id) {
 function newStoryId() { return "story_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
 // Builder defaults — single source of truth for fresh stories + reset + progress detection
-const DEFAULT_LANE_VALS = { healing:5, community:0, luxury:7, family:0, urban:0, reinvention:0, suspense:0, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:0 };
+const DEFAULT_LANE_VALS = { healing:5, community:0, luxury:7, family:0, urban:0, reinvention:0, suspense:0, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:0, streetLit:0, crimeSaga:0 };
 const DEFAULT_TROPES = ["Enemies to Lovers","Family Empire"];
 
 function freshStoryRecord(id) {
@@ -2548,7 +2736,7 @@ function freshStoryRecord(id) {
     heroineArch:null, heroArch:null, heroineWound:null, heroWound:null,
     setting:null, city:null, family:null, intensity:3, externalConflict:null,
     relationshipObstacle:null, familyInfluence:7, spiceLevel:2, romanceIntensity:DEFAULT_INTENSITY,
-    eroticRomance:{...DEFAULT_EROTIC},
+    eroticRomance:{...DEFAULT_EROTIC}, streetLitEng:{...DEFAULT_STREETLIT}, suspenseEng:{...DEFAULT_SUSPENSE},
     blueprint:null, outline:null, bible:null, chapterProse:{}, chapterReports:{},
     chapterSummaries:{}, chapterSceneCards:{}, sceneProse:{}, sceneSummaries:{}, sceneLocked:{}, bookPackage:null
   };
@@ -3336,6 +3524,47 @@ function EroticEngine({ value, onChange, categoryName, onApplyCategory }) {
       <div style={{ display:"grid", gap:14 }}>
         {EROTIC_DIMENSIONS.map(dim => {
           const v = value[dim.key] || 3;
+          return (
+            <div key={dim.key}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:4 }}>
+                <div>
+                  <div style={{ color:C.text, fontSize:12, fontWeight:600 }}>{dim.label}</div>
+                  <div style={{ color:C.muted, fontSize:10, lineHeight:1.4 }}>{dim.desc}</div>
+                </div>
+                <div style={{ color:C.gold, fontFamily:"Cormorant Garamond, serif", fontSize:18, fontWeight:700, minWidth:30, textAlign:"right" }}>{v}</div>
+              </div>
+              <input type="range" min={1} max={5} value={v}
+                onChange={e=>onChange({...value, [dim.key]: +e.target.value})}
+                style={{ width:"100%", accentColor:C.gold, height:6 }}/>
+              <div style={{ color:C.muted, fontSize:10, fontStyle:"italic", marginTop:2, textAlign:"center" }}>{dim.scale[v-1]}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Generic engine slider panel (W4: Street Lit, Suspense) ─────
+function EngineSliders({ icon, title, note, dims, value, onChange, categoryName, onApplyCategory }) {
+  return (
+    <div style={{ padding:"16px 18px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10, marginBottom:14 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10, marginBottom:12 }}>
+        <div>
+          <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>{icon} {title}</div>
+          {note && <div style={{ color:C.muted, fontSize:11, marginTop:2, lineHeight:1.4 }}>{note}</div>}
+        </div>
+        {categoryName && onApplyCategory && (
+          <button onClick={onApplyCategory}
+            style={{ padding:"6px 11px", background:"transparent", color:C.gold, border:"1px solid "+C.gold,
+                     borderRadius:7, fontSize:10, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap", fontFamily:"Nunito, sans-serif" }}>
+            ↻ {categoryName} baseline
+          </button>
+        )}
+      </div>
+      <div style={{ display:"grid", gap:14 }}>
+        {dims.map(dim => {
+          const v = value[dim.key] || 2;
           return (
             <div key={dim.key}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:4 }}>
@@ -5180,7 +5409,9 @@ function ChapterBuilder({ story, universe, chapterState }) {
       const result = await generateSceneCards(story, outline, chapterNum, bible, {
         spiceLevel: story.spiceLevel || 2,
         romanceIntensity: story.romanceIntensity || DEFAULT_INTENSITY,
-        eroticRomance: story.eroticRomance || DEFAULT_EROTIC
+        eroticRomance: story.eroticRomance || DEFAULT_EROTIC,
+        streetLitEng: story.streetLitEng || DEFAULT_STREETLIT,
+        suspenseEng: story.suspenseEng || DEFAULT_SUSPENSE
       });
       setChapterSceneCards(prev => ({...prev, [chapterNum]: result.scenes || []}));
       setExpandedChapter(chapterNum);
@@ -5201,6 +5432,8 @@ function ChapterBuilder({ story, universe, chapterState }) {
         spiceLevel: story.spiceLevel || 2,
         romanceIntensity: story.romanceIntensity || DEFAULT_INTENSITY,
         eroticRomance: story.eroticRomance || DEFAULT_EROTIC,
+        streetLitEng: story.streetLitEng || DEFAULT_STREETLIT,
+        suspenseEng: story.suspenseEng || DEFAULT_SUSPENSE,
         maxWordsPerGen,
         scenesInChapter: scenes,
         previousSceneSummary: prevSummaryText
@@ -6358,6 +6591,12 @@ export default function App() {
   const [eroticRomance, setEroticRomance] = useState({...DEFAULT_EROTIC});
   const eroticAppliedRef = useRef(null); // which erotic category baseline is currently reflected
 
+  // ── W4: Street Lit + Suspense engines ──
+  const [streetLitEng, setStreetLitEng] = useState({...DEFAULT_STREETLIT});
+  const [suspenseEng, setSuspenseEng] = useState({...DEFAULT_SUSPENSE});
+  const streetLitAppliedRef = useRef(null);
+  const suspenseAppliedRef = useRef(null);
+
   // ── Universe Builder state ──
   const [view, setView] = useState("story");              // "story" | "universes" | "universeDetail"
   const [universes, setUniverses] = useState(() => loadUniverses());
@@ -6628,13 +6867,15 @@ export default function App() {
         laneVals, tropes, heat, heroineArch, heroArch,
         heroineWound, heroWound, setting, city, family, intensity,
         externalConflict, relationshipObstacle, familyInfluence,
-        spiceLevel, romanceIntensity, eroticRomance,
+        spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng,
         universe: activeUniverse
       });
       // Attach spice/intensity to the story object so the scene engine can use them
       s.spiceLevel = spiceLevel;
       s.romanceIntensity = romanceIntensity;
       s.eroticRomance = eroticRomance;
+      s.streetLitEng = streetLitEng;
+      s.suspenseEng = suspenseEng;
       setStory(s);
       // W2: if no story is active yet (first load, or after deleting the active
       // story), auto-create story #1 from the current builder state.
@@ -6646,7 +6887,7 @@ export default function App() {
         Object.assign(rec, {
           laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
           setting, city, family, intensity, externalConflict, relationshipObstacle,
-          familyInfluence, spiceLevel, romanceIntensity, eroticRomance
+          familyInfluence, spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng
         });
         skipAutosaveRef.current = true;
         setStories(prev => { const next = [rec, ...prev]; saveStories(next); return next; });
@@ -6684,7 +6925,7 @@ export default function App() {
     updatedAt: Date.now(),
     laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
     setting, city, family, intensity, externalConflict, relationshipObstacle, familyInfluence,
-    spiceLevel, romanceIntensity, eroticRomance,
+    spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng,
     blueprint: story, outline, bible, chapterProse, chapterReports, chapterSummaries,
     chapterSceneCards, sceneProse, sceneSummaries, sceneLocked, bookPackage
   });
@@ -6702,6 +6943,12 @@ export default function App() {
     setEroticRomance({...cat.erotic});
   };
 
+  // W4: dominant lanes that drive the Street Lit / Suspense engines, + appliers
+  const slCat = dominantUrbanEngine(normalized, "streetLitEng");
+  const spCat = dominantUrbanEngine(normalized, "suspenseEng");
+  const applyStreetLit = (catId, baseline) => { streetLitAppliedRef.current = catId; setStreetLitEng({...baseline}); };
+  const applySuspense  = (catId, baseline) => { suspenseAppliedRef.current = catId; setSuspenseEng({...baseline}); };
+
   const resetBuilderState = () => {
     setLaneVals({...DEFAULT_LANE_VALS}); setTropes([...DEFAULT_TROPES]); setHeat(3);
     setHeroineArch(null); setHeroArch(null); setHeroineWound(null); setHeroWound(null);
@@ -6709,6 +6956,8 @@ export default function App() {
     setExternalConflict(null); setRelationshipObstacle(null); setFamilyInfluence(7);
     setSpiceLevel(2); setRomanceIntensity(DEFAULT_INTENSITY);
     setEroticRomance({...DEFAULT_EROTIC}); eroticAppliedRef.current = null;
+    setStreetLitEng({...DEFAULT_STREETLIT}); streetLitAppliedRef.current = null;
+    setSuspenseEng({...DEFAULT_SUSPENSE}); suspenseAppliedRef.current = null;
     setStory(null); setOutline(null); setBible(null);
     setChapterProse({}); setChapterReports({}); setChapterSummaries({});
     setChapterSceneCards({}); setSceneProse({}); setSceneSummaries({}); setSceneLocked({});
@@ -6729,6 +6978,10 @@ export default function App() {
     setSpiceLevel(rec.spiceLevel ?? 2); setRomanceIntensity(rec.romanceIntensity ?? DEFAULT_INTENSITY);
     setEroticRomance(rec.eroticRomance ?? {...DEFAULT_EROTIC});
     eroticAppliedRef.current = (dominantEroticCategory(normalize(rec.laneVals || {})) || {}).id || null;
+    setStreetLitEng(rec.streetLitEng ?? {...DEFAULT_STREETLIT});
+    setSuspenseEng(rec.suspenseEng ?? {...DEFAULT_SUSPENSE});
+    streetLitAppliedRef.current = (dominantUrbanEngine(normalize(rec.laneVals || {}), "streetLitEng") || {}).catId || null;
+    suspenseAppliedRef.current = (dominantUrbanEngine(normalize(rec.laneVals || {}), "suspenseEng") || {}).catId || null;
     setStory(rec.blueprint ?? null); setOutline(rec.outline ?? null); setBible(rec.bible ?? null);
     setChapterProse(rec.chapterProse ?? {}); setChapterReports(rec.chapterReports ?? {}); setChapterSummaries(rec.chapterSummaries ?? {});
     setChapterSceneCards(rec.chapterSceneCards ?? {}); setSceneProse(rec.sceneProse ?? {});
@@ -6847,7 +7100,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStoryId, story, laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
       setting, city, family, intensity, externalConflict, relationshipObstacle, familyInfluence,
-      spiceLevel, romanceIntensity, eroticRomance, outline, bible, chapterProse, chapterReports, chapterSummaries,
+      spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng, outline, bible, chapterProse, chapterReports, chapterSummaries,
       chapterSceneCards, sceneProse, sceneSummaries, sceneLocked, bookPackage]);
 
   // Hydrate the active story once on mount so a refresh restores your place
@@ -6862,10 +7115,13 @@ export default function App() {
   // W3: when the dominant erotic category changes, auto-populate the engines from
   // its calibration baseline (still manually adjustable afterward).
   useEffect(() => {
-    const cat = dominantEroticCategory(normalize(laneVals));
-    if (cat && cat.id !== eroticAppliedRef.current) {
-      applyEroticCategory(cat.id);
-    }
+    const norm = normalize(laneVals);
+    const cat = dominantEroticCategory(norm);
+    if (cat && cat.id !== eroticAppliedRef.current) applyEroticCategory(cat.id);
+    const sl = dominantUrbanEngine(norm, "streetLitEng");
+    if (sl && sl.catId !== streetLitAppliedRef.current) applyStreetLit(sl.catId, sl.baseline);
+    const sp = dominantUrbanEngine(norm, "suspenseEng");
+    if (sp && sp.catId !== suspenseAppliedRef.current) applySuspense(sp.catId, sp.baseline);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [laneVals]);
 
@@ -7122,6 +7378,16 @@ export default function App() {
           <EroticEngine value={eroticRomance} onChange={setEroticRomance}
             categoryName={eroticCat ? EROTIC_CATEGORIES[eroticCat.id].name : null}
             onApplyCategory={eroticCat ? (()=>applyEroticCategory(eroticCat.id)) : null}/>
+          <EngineSliders icon="🔫" title="Street Lit Engine"
+            note="Loyalty, danger, betrayal, empire, survival & consequence stakes — independent of romance. Powers Street Lit / Urban Fiction and Crime Family Saga."
+            dims={STREETLIT_DIMENSIONS} value={streetLitEng} onChange={setStreetLitEng}
+            categoryName={slCat ? URBAN_CATEGORIES[slCat.catId].name : null}
+            onApplyCategory={slCat ? (()=>applyStreetLit(slCat.catId, slCat.baseline)) : null}/>
+          <EngineSliders icon="🕵🏾" title="Suspense Engine"
+            note="Mystery, danger, conspiracy, dread & twists. Powers Urban Suspense and tense thrillers."
+            dims={SUSPENSE_DIMENSIONS} value={suspenseEng} onChange={setSuspenseEng}
+            categoryName={spCat ? URBAN_CATEGORIES[spCat.catId].name : null}
+            onApplyCategory={spCat ? (()=>applySuspense(spCat.catId, spCat.baseline)) : null}/>
         </div>
 
         {/* PATTERN PREVIEW (live) */}
