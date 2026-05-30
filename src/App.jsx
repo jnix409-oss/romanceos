@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 const FONT_CSS = `@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Nunito:wght@300;400;500;600;700&display=swap');`;
 
@@ -2345,6 +2345,78 @@ function saveUniverses(arr) {
 function newUniverseId()  { return "uni_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function newBookId()      { return "bk_"  + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
+// ── Multi-story persistence (W2) ──────────────────────────────
+const STORIES_KEY = "romanceStoryOS:stories";
+const ACTIVE_STORY_KEY = "romanceStoryOS:activeStoryId";
+
+function loadStories() {
+  try { const raw = localStorage.getItem(STORIES_KEY); return raw ? JSON.parse(raw) : []; }
+  catch(e) { return []; }
+}
+function saveStories(arr) {
+  try { localStorage.setItem(STORIES_KEY, JSON.stringify(arr)); return true; }
+  catch(e) { return false; }
+}
+function loadActiveStoryId() {
+  try { return localStorage.getItem(ACTIVE_STORY_KEY) || null; }
+  catch(e) { return null; }
+}
+function saveActiveStoryId(id) {
+  try { if (id) localStorage.setItem(ACTIVE_STORY_KEY, id); else localStorage.removeItem(ACTIVE_STORY_KEY); return true; }
+  catch(e) { return false; }
+}
+function newStoryId() { return "story_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+// Builder defaults — single source of truth for fresh stories + reset + progress detection
+const DEFAULT_LANE_VALS = { healing:5, community:0, luxury:7, family:0, urban:0, reinvention:0, suspense:0, faith:0 };
+const DEFAULT_TROPES = ["Enemies to Lovers","Family Empire"];
+
+function freshStoryRecord(id) {
+  const now = Date.now();
+  return {
+    id, title:"Untitled Story", createdAt:now, updatedAt:now,
+    laneVals:{...DEFAULT_LANE_VALS}, tropes:[...DEFAULT_TROPES], heat:3,
+    heroineArch:null, heroArch:null, heroineWound:null, heroWound:null,
+    setting:null, city:null, family:null, intensity:3, externalConflict:null,
+    relationshipObstacle:null, familyInfluence:7, spiceLevel:2, romanceIntensity:DEFAULT_INTENSITY,
+    blueprint:null, outline:null, bible:null, chapterProse:{}, chapterReports:{},
+    chapterSummaries:{}, chapterSceneCards:{}, sceneProse:{}, sceneSummaries:{}, sceneLocked:{}, bookPackage:null
+  };
+}
+
+// Relative-time helper for My Stories cards
+function relativeTime(ts) {
+  if (!ts) return "";
+  const diff = Date.now() - ts;
+  const s = Math.floor(diff/1000), m = Math.floor(s/60), h = Math.floor(m/60), d = Math.floor(h/24);
+  if (s < 45) return "just now";
+  if (m < 60) return "Updated " + m + (m===1?" minute":" minutes") + " ago";
+  if (h < 24) return "Updated " + h + (h===1?" hour":" hours") + " ago";
+  if (d < 30) return "Updated " + d + (d===1?" day":" days") + " ago";
+  const mo = Math.floor(d/30); return "Updated " + mo + (mo===1?" month":" months") + " ago";
+}
+
+// Top-2 lane blend summary for a story record
+function laneSummary(laneVals) {
+  if (!laneVals) return "No blend set";
+  const norm = normalize(laneVals);
+  const top = LANES.map(l => ({ label:l.label, pct:norm[l.id]||0 }))
+    .filter(x => x.pct > 0).sort((a,b)=>b.pct-a.pct).slice(0,2);
+  if (!top.length) return "No blend set";
+  return top.map(x => x.label + " " + x.pct + "%").join(" • ");
+}
+
+// Status line for a story record
+function storyStatus(rec) {
+  if (rec.outline && Array.isArray(rec.outline.chapters) && rec.outline.chapters.length) {
+    const n = rec.outline.chapters.length;
+    const drafted = Object.keys(rec.chapterProse||{}).length;
+    return drafted ? (n + " chapters · " + drafted + " drafted") : (n + " chapters outlined");
+  }
+  if (rec.blueprint) return "Blueprint only";
+  return "Inputs only";
+}
+
 // ── Universe Lore Generation ──────────────────────────────────
 async function generateUniverseLore(universe) {
   const hasBooks = universe.books && universe.books.length > 0;
@@ -3096,7 +3168,7 @@ const NAV_SECTIONS = [
   ]}
 ];
 
-function Sidebar({ active, onChange, hasStory, storyTitle, universeCount }) {
+function Sidebar({ active, onChange, onNewStory, hasStory, storyTitle, universeCount }) {
   return (
     <aside style={{ width:240, minHeight:"100vh", background:"#F8F7F2", borderRight:"1px solid "+C.faint,
                     padding:"22px 0", display:"flex", flexDirection:"column", flexShrink:0,
@@ -3135,7 +3207,7 @@ function Sidebar({ active, onChange, hasStory, storyTitle, universeCount }) {
               const showBadge = item.id === "worldBuilder" && universeCount > 0;
               return (
                 <button key={item.id}
-                  onClick={()=>!isDisabled && onChange(item.id)}
+                  onClick={()=>{ if (isDisabled) return; if (item.id === "newStory" && onNewStory) onNewStory(); else onChange(item.id); }}
                   disabled={isDisabled}
                   style={{
                     width:"100%", padding:"7px 10px", marginBottom:1,
@@ -4736,33 +4808,32 @@ function PublishingStudio({ story, outline, bible, packageData, generating, prog
   );
 }
 
-function ChapterBuilder({ story, universe }) {
+function ChapterBuilder({ story, universe, chapterState }) {
   // Manuscript spec
   const [targetWordCount, setTargetWordCount] = useState(80000);
   const [chapterCount, setChapterCount] = useState(32);
   const [maxWordsPerGen, setMaxWordsPerGen] = useState(2500);
   const avgWordsPerChapter = Math.round(targetWordCount / chapterCount);
 
-  const [outline, setOutline] = useState(null);
+  // Persistent chapter/scene data is lifted to App so the active story owns it
+  // (enables multi-story persistence). UI/loading flags stay local below.
+  const {
+    outline, setOutline, bible, setBible,
+    chapterProse, setChapterProse, chapterReports, setChapterReports,
+    chapterSummaries, setChapterSummaries,
+    chapterSceneCards, setChapterSceneCards, sceneProse, setSceneProse,
+    sceneSummaries, setSceneSummaries, sceneLocked, setSceneLocked
+  } = chapterState;
+
   const [loadingOutline, setLoadingOutline] = useState(false);
-  const [bible, setBible] = useState(null);
   const [buildingBible, setBuildingBible] = useState(false);
-  const [chapterProse, setChapterProse] = useState({});
-  const [chapterReports, setChapterReports] = useState({});
-  const [chapterSummaries, setChapterSummaries] = useState({});
   const [writingCh, setWritingCh] = useState(null);
   const [continuingCh, setContinuingCh] = useState(null);
   const [checkingCh, setCheckingCh] = useState(null);
   const [summarizingCh, setSummarizingCh] = useState(null);
   const [editingCh, setEditingCh] = useState(null);
 
-  // ── Scene Engine state ──
-  // chapterSceneCards[n] = array of scene-card objects for chapter n
-  const [chapterSceneCards, setChapterSceneCards] = useState({});
-  // sceneProse[chapterNum][sceneNumber] = string
-  const [sceneProse, setSceneProse] = useState({});
-  const [sceneSummaries, setSceneSummaries] = useState({});
-  const [sceneLocked, setSceneLocked] = useState({});
+  // ── Scene Engine UI state (persistent scene data lives in App via chapterState) ──
   const [generatingScenesCh, setGeneratingScenesCh] = useState(null);
   const [writingScene, setWritingScene] = useState(null);     // {ch, sc}
   const [continuingScene, setContinuingScene] = useState(null);
@@ -5483,7 +5554,7 @@ function ActivatedPatternsCard({ patterns, calibration, currentSpice, currentInt
   );
 }
 
-function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activeUniverse, activatedPatterns }) {
+function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activeUniverse, activatedPatterns, chapterState }) {
   return (
     <div style={{ marginTop:28 }}>
       <div style={{ padding:"28px 30px", background:"linear-gradient(135deg, "+C.surface+", "+C.card+")",
@@ -5575,7 +5646,7 @@ function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activ
       <MarketDashboard story={story}/>
 
       <SaveBlueprint story={story} universes={universes} activeUniverseId={activeUniverseId} onSaveToUniverse={onSaveToUniverse}/>
-      <ChapterBuilder story={story} universe={activeUniverse}/>
+      <ChapterBuilder story={story} universe={activeUniverse} chapterState={chapterState}/>
     </div>
   );
 }
@@ -5977,6 +6048,71 @@ function UniverseBuilder({ universes, onCreate, onOpen, onDelete }) {
 
 // ── Main App ──────────────────────────────────────────────────
 
+// ── My Stories library (W2) ───────────────────────────────────
+function MyStories({ stories, activeStoryId, onOpen, onDuplicate, onDelete, onImport }) {
+  const fileRef = useRef(null);
+  const sorted = [...stories].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  const btn = (bg, color, filled) => ({
+    padding:"6px 12px", background:bg, color, border: filled ? "none" : "1px solid "+C.borderLight,
+    borderRadius:7, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"Nunito, sans-serif"
+  });
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", gap:14, flexWrap:"wrap", marginBottom:20 }}>
+        <div>
+          <div style={{ color:C.gold, fontSize:11, letterSpacing:2, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>Library</div>
+          <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:30, fontWeight:700 }}>My Stories</div>
+          <div style={{ color:C.muted, fontSize:12, marginTop:2 }}>{sorted.length} {sorted.length===1?"story":"stories"} saved on this device</div>
+        </div>
+        <div>
+          <input ref={fileRef} type="file" accept=".json" style={{ display:"none" }}
+            onChange={(e)=>{ const f=e.target.files&&e.target.files[0]; if(f) onImport(f); e.target.value=""; }}/>
+          <button onClick={()=>fileRef.current&&fileRef.current.click()}
+            style={{ padding:"9px 16px", background:"transparent", color:C.gold, border:"1px solid "+C.gold,
+                     borderRadius:8, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+            ⤓ Import from JSON
+          </button>
+        </div>
+      </div>
+
+      {sorted.length === 0 ? (
+        <div style={{ padding:"48px 24px", textAlign:"center", color:C.muted, background:C.surface, border:"1px dashed "+C.border, borderRadius:14 }}>
+          <div style={{ fontSize:30, marginBottom:10 }}>📚</div>
+          <div style={{ fontFamily:"Cormorant Garamond, serif", fontSize:20, color:C.text, marginBottom:6 }}>No stories yet</div>
+          <div style={{ fontSize:12 }}>Generate a blueprint in New Story, or import an exported blueprint JSON.</div>
+        </div>
+      ) : (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:16 }}>
+          {sorted.map(rec => {
+            const isActive = rec.id === activeStoryId;
+            return (
+              <div key={rec.id} style={{ padding:"18px 20px", background:C.surface,
+                border:"1px solid "+(isActive?C.gold:C.border), borderRadius:14, display:"flex", flexDirection:"column", gap:7 }}>
+                <div style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
+                  <div style={{ flex:1, color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:21, fontWeight:700, lineHeight:1.2 }}>
+                    {rec.title || "Untitled Story"}
+                  </div>
+                  {isActive && (
+                    <span style={{ padding:"2px 8px", background:C.glow, color:C.gold, borderRadius:8, fontSize:9, fontWeight:700, letterSpacing:1, textTransform:"uppercase", whiteSpace:"nowrap" }}>Active</span>
+                  )}
+                </div>
+                <div style={{ color:C.amber, fontSize:11, fontWeight:600 }}>{laneSummary(rec.laneVals)}</div>
+                <div style={{ color:C.muted, fontSize:11 }}>{storyStatus(rec)}</div>
+                <div style={{ color:C.muted, fontSize:10, opacity:0.8 }}>{relativeTime(rec.updatedAt)}</div>
+                <div style={{ display:"flex", gap:7, marginTop:6 }}>
+                  <button onClick={()=>onOpen(rec.id)} style={btn(C.gold, C.bg, true)}>Open</button>
+                  <button onClick={()=>onDuplicate(rec.id)} style={btn("transparent", C.muted, false)}>Duplicate</button>
+                  <button onClick={()=>onDelete(rec.id)} style={btn("transparent", "#B8342D", false)}>Delete</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [laneVals, setLaneVals] = useState({
     healing:5, community:0, luxury:7, family:0, urban:0, reinvention:0, suspense:0, faith:0
@@ -6007,6 +6143,14 @@ export default function App() {
   const [view, setView] = useState("story");              // "story" | "universes" | "universeDetail"
   const [universes, setUniverses] = useState(() => loadUniverses());
   const [globalRegistry, setGlobalRegistry] = useState(() => loadGlobalRegistry());
+
+  // ── W2: multi-story persistence ──
+  const [stories, setStories] = useState(() => loadStories());
+  const [activeStoryId, setActiveStoryId] = useState(() => {
+    const id = loadActiveStoryId();
+    return loadStories().find(s => s.id === id) ? id : null;
+  });
+  const skipAutosaveRef = useRef(true);  // skip autosave on mount + programmatic hydration
   const [alternativesFor, setAlternativesFor] = useState(null);
   const [alternatives, setAlternatives] = useState(null);
   const [loadingAlts, setLoadingAlts] = useState(false);
@@ -6213,6 +6357,24 @@ export default function App() {
 
   const [story, setStory] = useState(null);
 
+  // ── Chapter/scene state lifted from ChapterBuilder so the active story owns it ──
+  const [outline, setOutline] = useState(null);
+  const [bible, setBible] = useState(null);
+  const [chapterProse, setChapterProse] = useState({});
+  const [chapterReports, setChapterReports] = useState({});
+  const [chapterSummaries, setChapterSummaries] = useState({});
+  const [chapterSceneCards, setChapterSceneCards] = useState({});
+  const [sceneProse, setSceneProse] = useState({});
+  const [sceneSummaries, setSceneSummaries] = useState({});
+  const [sceneLocked, setSceneLocked] = useState({});
+  const chapterState = {
+    outline, setOutline, bible, setBible,
+    chapterProse, setChapterProse, chapterReports, setChapterReports,
+    chapterSummaries, setChapterSummaries,
+    chapterSceneCards, setChapterSceneCards, sceneProse, setSceneProse,
+    sceneSummaries, setSceneSummaries, sceneLocked, setSceneLocked
+  };
+
   // Compute similarity check for current story title + premise
   const titleSim = story ? similarityCheck(story.title, globalRegistry.organizationNames.filter(n => n !== story.title)) : null;
   const premiseSim = story ? similarityCheck(buildPlotFingerprint(story), globalRegistry.plotFingerprints.filter(fp => fp !== buildPlotFingerprint(story))) : null;
@@ -6254,6 +6416,22 @@ export default function App() {
       s.spiceLevel = spiceLevel;
       s.romanceIntensity = romanceIntensity;
       setStory(s);
+      // W2: if no story is active yet (first load, or after deleting the active
+      // story), auto-create story #1 from the current builder state.
+      if (!activeStoryId) {
+        const id = newStoryId();
+        const rec = freshStoryRecord(id);
+        rec.title = s.title || "Untitled Story";
+        rec.blueprint = s;
+        Object.assign(rec, {
+          laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
+          setting, city, family, intensity, externalConflict, relationshipObstacle,
+          familyInfluence, spiceLevel, romanceIntensity
+        });
+        skipAutosaveRef.current = true;
+        setStories(prev => { const next = [rec, ...prev]; saveStories(next); return next; });
+        setActiveStoryId(id); saveActiveStoryId(id);
+      }
       // Auto-register entities from this story into the global registry
       const newReg = registerStoryEntities(globalRegistry, s);
       setGlobalRegistry(newReg);
@@ -6276,6 +6454,175 @@ export default function App() {
     }
   };
 
+  // ── W2: multi-story persistence helpers ─────────────────────
+  const activeStoryRec = stories.find(s => s.id === activeStoryId) || null;
+
+  // Snapshot the current builder state into a story record
+  const buildRecord = (base) => ({
+    ...base,
+    title: (story && story.title) || base.title || "Untitled Story",
+    updatedAt: Date.now(),
+    laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
+    setting, city, family, intensity, externalConflict, relationshipObstacle, familyInfluence,
+    spiceLevel, romanceIntensity,
+    blueprint: story, outline, bible, chapterProse, chapterReports, chapterSummaries,
+    chapterSceneCards, sceneProse, sceneSummaries, sceneLocked, bookPackage
+  });
+
+  const resetBuilderState = () => {
+    setLaneVals({...DEFAULT_LANE_VALS}); setTropes([...DEFAULT_TROPES]); setHeat(3);
+    setHeroineArch(null); setHeroArch(null); setHeroineWound(null); setHeroWound(null);
+    setSetting(null); setCity(null); setFamily(null); setIntensity(3);
+    setExternalConflict(null); setRelationshipObstacle(null); setFamilyInfluence(7);
+    setSpiceLevel(2); setRomanceIntensity(DEFAULT_INTENSITY);
+    setStory(null); setOutline(null); setBible(null);
+    setChapterProse({}); setChapterReports({}); setChapterSummaries({});
+    setChapterSceneCards({}); setSceneProse({}); setSceneSummaries({}); setSceneLocked({});
+    setBookPackage(null);
+  };
+
+  const hydrateFromRecord = (rec) => {
+    skipAutosaveRef.current = true;
+    setLaneVals(rec.laneVals || {...DEFAULT_LANE_VALS});
+    setTropes(rec.tropes || [...DEFAULT_TROPES]);
+    setHeat(rec.heat ?? 3);
+    setHeroineArch(rec.heroineArch ?? null); setHeroArch(rec.heroArch ?? null);
+    setHeroineWound(rec.heroineWound ?? null); setHeroWound(rec.heroWound ?? null);
+    setSetting(rec.setting ?? null); setCity(rec.city ?? null); setFamily(rec.family ?? null);
+    setIntensity(rec.intensity ?? 3);
+    setExternalConflict(rec.externalConflict ?? null); setRelationshipObstacle(rec.relationshipObstacle ?? null);
+    setFamilyInfluence(rec.familyInfluence ?? 7);
+    setSpiceLevel(rec.spiceLevel ?? 2); setRomanceIntensity(rec.romanceIntensity ?? DEFAULT_INTENSITY);
+    setStory(rec.blueprint ?? null); setOutline(rec.outline ?? null); setBible(rec.bible ?? null);
+    setChapterProse(rec.chapterProse ?? {}); setChapterReports(rec.chapterReports ?? {}); setChapterSummaries(rec.chapterSummaries ?? {});
+    setChapterSceneCards(rec.chapterSceneCards ?? {}); setSceneProse(rec.sceneProse ?? {});
+    setSceneSummaries(rec.sceneSummaries ?? {}); setSceneLocked(rec.sceneLocked ?? {});
+    setBookPackage(rec.bookPackage ?? null);
+  };
+
+  // Immediately persist current builder state into the active record
+  const flushActive = () => {
+    if (!activeStoryId) return;
+    setStories(prev => {
+      const idx = prev.findIndex(s => s.id === activeStoryId);
+      if (idx === -1) return prev;
+      const next = [...prev]; next[idx] = buildRecord(prev[idx]);
+      saveStories(next); return next;
+    });
+  };
+
+  const hasProgress = () => {
+    if (story || outline || bible) return true;
+    if (heroineArch || heroArch || heroineWound || heroWound || setting || city || family || externalConflict || relationshipObstacle) return true;
+    if (heat !== 3 || intensity !== 3 || familyInfluence !== 7 || spiceLevel !== 2) return true;
+    if (JSON.stringify(laneVals) !== JSON.stringify(DEFAULT_LANE_VALS)) return true;
+    if (JSON.stringify(tropes) !== JSON.stringify(DEFAULT_TROPES)) return true;
+    if (JSON.stringify(romanceIntensity) !== JSON.stringify(DEFAULT_INTENSITY)) return true;
+    return false;
+  };
+
+  const createAndActivate = (rec) => {
+    skipAutosaveRef.current = true;
+    setStories(prev => { const next = [rec, ...prev]; saveStories(next); return next; });
+    setActiveStoryId(rec.id); saveActiveStoryId(rec.id);
+  };
+
+  const handleNewStory = () => {
+    const proceed = () => {
+      flushActive();
+      resetBuilderState();
+      createAndActivate(freshStoryRecord(newStoryId()));
+      goToSection("newStory");
+    };
+    if (activeStoryId && hasProgress()) {
+      if (window.confirm("Save current story and start a new one? Your current progress is saved automatically — you can return to it from My Stories.")) {
+        proceed();
+      }
+    } else {
+      proceed();
+    }
+  };
+
+  const openStory = (id) => {
+    const rec = stories.find(s => s.id === id);
+    if (!rec) return;
+    flushActive();
+    hydrateFromRecord(rec);
+    setActiveStoryId(id); saveActiveStoryId(id);
+    goToSection("newStory");
+  };
+
+  const duplicateStory = (id) => {
+    const rec = stories.find(s => s.id === id);
+    if (!rec) return;
+    flushActive();
+    const copy = { ...JSON.parse(JSON.stringify(rec)), id: newStoryId(),
+      title: "Copy of " + (rec.title || "Untitled Story"), createdAt: Date.now(), updatedAt: Date.now() };
+    hydrateFromRecord(copy);
+    createAndActivate(copy);
+    goToSection("newStory");
+  };
+
+  const deleteStory = (id) => {
+    if (!window.confirm("Delete this story? This cannot be undone.")) return;
+    setStories(prev => { const next = prev.filter(s => s.id !== id); saveStories(next); return next; });
+    if (activeStoryId === id) {
+      setActiveStoryId(null); saveActiveStoryId(null);
+      skipAutosaveRef.current = true;
+      resetBuilderState();
+    }
+  };
+
+  const importStoryFromJSON = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      let data;
+      try { data = JSON.parse(e.target.result); }
+      catch(err) { window.alert("Could not parse that JSON file: " + err.message); return; }
+      if (!data || typeof data.title !== "string") {
+        window.alert('That file does not look like an exported blueprint (missing a "title" field).');
+        return;
+      }
+      flushActive();
+      const rec = freshStoryRecord(newStoryId());
+      rec.title = data.title || "Imported Story";
+      rec.blueprint = data;
+      hydrateFromRecord(rec);
+      createAndActivate(rec);
+      goToSection("newStory");
+    };
+    reader.readAsText(file);
+  };
+
+  // Debounced (1.5s) silent autosave of the active story
+  useEffect(() => {
+    if (skipAutosaveRef.current) { skipAutosaveRef.current = false; return; }
+    if (!activeStoryId) return;
+    const t = setTimeout(() => {
+      setStories(prev => {
+        const idx = prev.findIndex(s => s.id === activeStoryId);
+        if (idx === -1) return prev;
+        const next = [...prev]; next[idx] = buildRecord(prev[idx]);
+        saveStories(next); return next;
+      });
+    }, 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStoryId, story, laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
+      setting, city, family, intensity, externalConflict, relationshipObstacle, familyInfluence,
+      spiceLevel, romanceIntensity, outline, bible, chapterProse, chapterReports, chapterSummaries,
+      chapterSceneCards, sceneProse, sceneSummaries, sceneLocked, bookPackage]);
+
+  // Hydrate the active story once on mount so a refresh restores your place
+  useEffect(() => {
+    if (activeStoryId) {
+      const rec = loadStories().find(s => s.id === activeStoryId);
+      if (rec) hydrateFromRecord(rec);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"Nunito, sans-serif" }}>
       <style>{FONT_CSS}</style>
@@ -6283,8 +6630,9 @@ export default function App() {
         <Sidebar
           active={activeSection}
           onChange={goToSection}
+          onNewStory={handleNewStory}
           hasStory={!!story}
-          storyTitle={story ? story.title : null}
+          storyTitle={activeStoryRec ? activeStoryRec.title : null}
           universeCount={universes.length}/>
 
         <main style={{ flex:1, padding:"28px 32px", overflowX:"hidden" }}>
@@ -6365,8 +6713,19 @@ export default function App() {
                 features={["API & model configuration", "Default manuscript spec", "Default spice/intensity", "Global Registry management", "Export format defaults", "Theme & typography"]}/>
             )}
 
-            {/* Default story-builder view — activeSection in {newStory, myStories, storyBible, characterStudio, sceneStudio, draftManuscript, editorMode} all render the full builder */}
-            {!["publishingStudio","dashboard","readerIntelligence","marketIntelligence","settings"].includes(activeSection) && (
+            {/* MY STORIES library */}
+            {activeSection === "myStories" && (
+              <MyStories
+                stories={stories}
+                activeStoryId={activeStoryId}
+                onOpen={openStory}
+                onDuplicate={duplicateStory}
+                onDelete={deleteStory}
+                onImport={importStoryFromJSON}/>
+            )}
+
+            {/* Default story-builder view — activeSection in {newStory, storyBible, characterStudio, sceneStudio, draftManuscript, editorMode} all render the full builder */}
+            {!["publishingStudio","dashboard","readerIntelligence","marketIntelligence","settings","myStories"].includes(activeSection) && (
               <>
             {activeUniverse && (
               <div style={{ padding:"14px 20px", background:C.glow, border:"1px solid "+C.gold,
@@ -6561,7 +6920,8 @@ export default function App() {
             activeUniverseId={activeUniverseId}
             activeUniverse={activeUniverse}
             onSaveToUniverse={saveBookToUniverse}
-            activatedPatterns={activatedPatterns}/>
+            activatedPatterns={activatedPatterns}
+            chapterState={chapterState}/>
         )}
 
               </>
