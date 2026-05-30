@@ -49,10 +49,16 @@ export default async (request) => {
     return json({ error: { message: "Upstream request failed: " + e.message } }, 502);
   }
 
-  const text = await resp.text();
-  return new Response(text, {
+  // Stream Anthropic's response body straight through. For streamed requests
+  // (stream:true) this keeps bytes flowing to the client, so long generations
+  // don't trip Netlify's inactivity timeout. Error responses (non-SSE JSON)
+  // pass through unchanged.
+  return new Response(resp.body, {
     status: resp.status,
-    headers: { "content-type": resp.headers.get("content-type") || "application/json" },
+    headers: {
+      "content-type": resp.headers.get("content-type") || "application/json",
+      "cache-control": "no-cache",
+    },
   });
 };
 

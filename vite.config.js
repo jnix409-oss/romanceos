@@ -54,6 +54,11 @@ export default defineConfig(({ mode }) => {
               // x-proxy-secret is only for our own Netlify function; strip it
               // so it isn't forwarded upstream to Anthropic.
               proxyReq.removeHeader("x-proxy-secret");
+              // Strip browser Origin/Referer — otherwise Anthropic treats this
+              // as a direct browser call and demands the
+              // anthropic-dangerous-direct-browser-access header.
+              proxyReq.removeHeader("origin");
+              proxyReq.removeHeader("referer");
               if (KEY) proxyReq.setHeader("x-api-key", KEY);
               proxyReq.setHeader("anthropic-version", "2023-06-01");
             });

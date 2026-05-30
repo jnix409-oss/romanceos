@@ -3,10 +3,14 @@ import { useState, useCallback } from "react";
 const FONT_CSS = `@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Nunito:wght@300;400;500;600;700&display=swap');`;
 
 const C = {
-  bg:"#0C0805", surface:"#161009", card:"#201508", cardLight:"#2A1C0D",
-  border:"#3A2810", borderLight:"#4A3520",
-  text:"#F5EAD5", muted:"#8A7050", faint:"#3A2810",
-  gold:"#D4A828", amber:"#E8B840", glow:"rgba(212,168,40,0.12)",
+  bg:"#FCFCF9", surface:"#FFFFFF", card:"#F8F7F2", cardLight:"#FFFFFF",
+  border:"#E8E5DE", borderLight:"#EFEDE7",
+  text:"#1A1612", muted:"#6B665E", faint:"#F2F0EA",
+  gold:"#B8841C", amber:"#C8941F", glow:"rgba(184,132,28,0.10)",
+  manuscript:"#FAF6EC", manuscriptBorder:"#EFE6CF",
+  successBg:"#E8F5F0", successText:"#2D8B7A",
+  warningBg:"#FAF5E8", warningText:"#B07A1F",
+  errorBg:"#FBE9E7", errorText:"#B8342D",
 };
 
 const LANES = [
@@ -14,7 +18,7 @@ const LANES = [
   { id:"community",   label:"Community Romance",           color:"#D88830", desc:"Friend groups, family gatherings, chosen community" },
   { id:"luxury",      label:"Luxury / Black Excellence",   color:"#D4A828", desc:"CEOs, power couples, ambition, aspirational world" },
   { id:"family",      label:"Family Saga",                 color:"#C05060", desc:"Generational conflict, legacy, family business drama" },
-  { id:"urban",       label:"Urban Heat",                  color:"#E04040", desc:"Intensity, loyalty, protective heroes, high stakes" },
+  { id:"urban",       label:"Urban Heat",                  color:"#B8342D", desc:"Intensity, loyalty, protective heroes, high stakes" },
   { id:"reinvention", label:"Reinvention Romance",         color:"#30A888", desc:"Midlife, career change, divorce, starting over" },
   { id:"suspense",    label:"Romantic Suspense",           color:"#4888C8", desc:"Danger, secrets, investigations alongside love" },
   { id:"faith",       label:"Faith & Purpose",             color:"#C8A030", desc:"Calling, spiritual growth, moral dilemmas" },
@@ -30,7 +34,7 @@ const TROPES = [
 ];
 
 const HEAT = [
-  { level:1, label:"Sweet",     emoji:"🌸", color:"#70B0A0", desc:"Tension + emotional intimacy only" },
+  { level:1, label:"Sweet",     emoji:"🌸", color:"#2D8B7A", desc:"Tension + emotional intimacy only" },
   { level:2, label:"Moderate",  emoji:"🌹", color:"#C09030", desc:"Kissing, romance, mild sensuality" },
   { level:3, label:"Steamy",    emoji:"🔥", color:"#D06030", desc:"Romantic tension + tasteful scenes" },
   { level:4, label:"High Heat", emoji:"🌶️", color:"#C83050", desc:"Frequent, explicit romantic scenes" },
@@ -865,7 +869,11 @@ function topArchetypes(archetypes, normLanes, n=5) {
 
 // ── API ───────────────────────────────────────────────────────
 async function apiCall(sys, user, maxTokens) {
-  let res, data;
+  // Streamed request. Long generations (e.g. the chapter outline) take ~30s,
+  // which exceeds the proxy/gateway inactivity timeout for a buffered response.
+  // Streaming keeps bytes flowing so the connection stays alive, and we
+  // reassemble the text deltas into the same string the callers expect.
+  let res;
   try {
     res = await fetch("/api/anthropic/v1/messages", {
       method:"POST",
@@ -877,13 +885,51 @@ async function apiCall(sys, user, maxTokens) {
         model:"claude-sonnet-4-20250514",
         max_tokens: maxTokens||1500,
         system:sys,
-        messages:[{role:"user",content:user}]
+        messages:[{role:"user",content:user}],
+        stream:true
       })
     });
-    data = await res.json();
   } catch(e) { throw new Error("Network: "+e.message); }
-  if (data.error) throw new Error(data.error.message||"API error");
-  const raw = ((data.content?.[0]?.text)||"").replace(/```json|```/g,"").trim();
+
+  // Non-streaming error responses (auth, rate limit, bad request) come back as
+  // JSON with a non-2xx status — surface their message.
+  if (!res.ok || !res.body) {
+    let msg = "API error ("+res.status+")";
+    try {
+      const t = await res.text();
+      try { msg = (JSON.parse(t).error?.message) || msg; } catch { if (t) msg = t.slice(0,200); }
+    } catch {}
+    throw new Error(msg);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "", text = "", apiError = null;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream:true });
+      let nl;
+      while ((nl = buffer.indexOf("\n")) !== -1) {
+        const line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        let evt;
+        try { evt = JSON.parse(payload); } catch { continue; }
+        if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
+          text += evt.delta.text;
+        } else if (evt.type === "error") {
+          apiError = evt.error?.message || "API stream error";
+        }
+      }
+    }
+  } catch(e) { throw new Error("Network: "+e.message); }
+
+  if (apiError) throw new Error(apiError);
+  const raw = text.replace(/```json|```/g,"").trim();
   if (!raw) throw new Error("Empty response");
   return raw;
 }
@@ -1313,13 +1359,13 @@ function SimilarityBadge({ status, score, mostSimilar, compact }) {
   if (!status || status === "PASS") {
     if (compact) return null;
     return (
-      <span style={{ padding:"2px 8px", background:"rgba(112,176,160,0.1)", border:"1px solid #70B0A0",
-                     borderRadius:10, fontSize:10, color:"#70B0A0", fontWeight:700, letterSpacing:1 }}>
+      <span style={{ padding:"2px 8px", background:"rgba(45,139,122,0.10)", border:"1px solid #2D8B7A",
+                     borderRadius:10, fontSize:10, color:"#2D8B7A", fontWeight:700, letterSpacing:1 }}>
         ✓ UNIQUE
       </span>
     );
   }
-  const c = status === "WARNING" ? "#C8A030" : "#E04040";
+  const c = status === "WARNING" ? "#B07A1F" : "#B8342D";
   const icon = status === "WARNING" ? "⚠" : "✗";
   const pct = Math.round((score||0) * 100);
   return (
@@ -2395,7 +2441,7 @@ function ArchetypeRow({ arch, selected, onClick }) {
       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
         <div style={{ color:selected?C.gold:C.text, fontWeight:600, fontSize:14 }}>{arch.n}</div>
         {isTop && <span style={{ fontSize:9, color:C.gold, border:"1px solid "+C.gold, padding:"1px 5px", borderRadius:3 }}>TOP</span>}
-        {isGrow && <span style={{ fontSize:9, color:"#70B0A0", border:"1px solid #70B0A0", padding:"1px 5px", borderRadius:3 }}>GROWING</span>}
+        {isGrow && <span style={{ fontSize:9, color:"#2D8B7A", border:"1px solid #2D8B7A", padding:"1px 5px", borderRadius:3 }}>GROWING</span>}
         {isFresh && <span style={{ fontSize:9, color:"#A070C8", border:"1px solid #A070C8", padding:"1px 5px", borderRadius:3 }}>FRESH</span>}
       </div>
       <div style={{ color:C.muted, fontSize:11, marginBottom:6 }}>{arch.cat} · {arch.wound}</div>
@@ -2479,7 +2525,7 @@ function WoundRow({ wound, selected, onClick }) {
         {isBest && <span style={{ fontSize:9, color:C.gold, border:"1px solid "+C.gold, padding:"1px 5px", borderRadius:3 }}>BESTSELLER</span>}
       </div>
       <div style={{ color:C.muted, fontSize:11, lineHeight:1.4 }}>
-        <span style={{ color:"#C8A030" }}>Fear:</span> {wound.fear} · <span style={{ color:"#70B0A0" }}>Heals via:</span> {wound.heal}
+        <span style={{ color:"#B07A1F" }}>Fear:</span> {wound.fear} · <span style={{ color:"#2D8B7A" }}>Heals via:</span> {wound.heal}
       </div>
     </button>
   );
@@ -2509,7 +2555,7 @@ function WoundPicker({ label, selected, onSelect, accent }) {
         </div>
         {selected && (
           <div style={{ color:C.muted, fontSize:11, marginTop:3, lineHeight:1.4 }}>
-            <span style={{ color:"#C8A030" }}>Fear:</span> {selected.fear}
+            <span style={{ color:"#B07A1F" }}>Fear:</span> {selected.fear}
           </div>
         )}
         {selected && (
@@ -2922,7 +2968,7 @@ function SpiceLevelSelector({ value, onChange }) {
           </button>
         ))}
       </div>
-      <div style={{ padding:"10px 14px", background:C.bg, borderLeft:"3px solid "+C.gold, borderRadius:4, fontSize:12, color:C.text, lineHeight:1.6 }}>
+      <div style={{ padding:"10px 14px", background:C.manuscript, borderLeft:"3px solid "+C.gold, borderRadius:4, fontSize:12, color:C.text, lineHeight:1.6 }}>
         <div style={{ color:C.amber, fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>
           Focus: {current.focus}
         </div>
@@ -3007,7 +3053,7 @@ const NAV_SECTIONS = [
 
 function Sidebar({ active, onChange, hasStory, storyTitle, universeCount }) {
   return (
-    <aside style={{ width:240, minHeight:"100vh", background:"#0A0604", borderRight:"1px solid "+C.faint,
+    <aside style={{ width:240, minHeight:"100vh", background:"#F8F7F2", borderRight:"1px solid "+C.faint,
                     padding:"22px 0", display:"flex", flexDirection:"column", flexShrink:0,
                     position:"sticky", top:0, alignSelf:"flex-start" }}>
       {/* Brand */}
@@ -3048,7 +3094,7 @@ function Sidebar({ active, onChange, hasStory, storyTitle, universeCount }) {
                   disabled={isDisabled}
                   style={{
                     width:"100%", padding:"7px 10px", marginBottom:1,
-                    background: isActive ? "rgba(212, 168, 40, 0.12)" : "transparent",
+                    background: isActive ? "rgba(184,132,28,0.10)" : "transparent",
                     border:"none", borderLeft: isActive ? "2px solid "+C.gold : "2px solid transparent",
                     borderRadius:5, color: isActive ? C.gold : (isDisabled ? C.faint : C.muted),
                     textAlign:"left", cursor: isDisabled ? "not-allowed" : "pointer",
@@ -3371,7 +3417,7 @@ function StoryBibleViewer({ bible }) {
                 <div><span style={{ color:C.amber }}>Goals: </span>{c.goals}</div>
                 <div><span style={{ color:C.amber }}>Family: </span>{c.family}</div>
                 <div><span style={{ color:C.amber }}>Relationships: </span>{c.relationships}</div>
-                <div style={{ marginTop:4, padding:"6px 10px", background:C.bg, borderLeft:"2px solid "+C.gold, borderRadius:3 }}>
+                <div style={{ marginTop:4, padding:"6px 10px", background:C.manuscript, borderLeft:"2px solid "+C.gold, borderRadius:3 }}>
                   <span style={{ color:C.gold, fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1 }}>Speech Pattern: </span>
                   <span style={{ fontStyle:"italic" }}>{c.speechPatterns}</span>
                 </div>
@@ -3425,7 +3471,7 @@ function StoryBibleViewer({ bible }) {
               <div style={{ color:C.amber, fontWeight:600, fontSize:11, textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>Mysteries</div>
               <div style={{ display:"grid", gap:5 }}>
                 {plot.mysteries.map((m,i)=>{
-                  const statusColor = m.status==="resolved" ? "#70B0A0" : m.status==="closing" ? "#C8A030" : "#D88830";
+                  const statusColor = m.status==="resolved" ? "#2D8B7A" : m.status==="closing" ? "#B07A1F" : "#D88830";
                   return (
                     <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"5px 10px", background:C.surface, border:"1px solid "+C.borderLight, borderRadius:5 }}>
                       <span>{m.name}</span>
@@ -3444,7 +3490,7 @@ function StoryBibleViewer({ bible }) {
                   <div key={i} style={{ padding:"6px 10px", background:C.surface, border:"1px solid "+C.borderLight, borderRadius:5 }}>
                     <span style={{ color:C.text, fontWeight:600 }}>{s.owner}: </span>
                     <span>{s.secret}</span>
-                    {s.revealedIn && <span style={{ color:"#70B0A0", marginLeft:8, fontSize:10 }}>revealed Ch{s.revealedIn}</span>}
+                    {s.revealedIn && <span style={{ color:"#2D8B7A", marginLeft:8, fontSize:10 }}>revealed Ch{s.revealedIn}</span>}
                     {!s.revealedIn && <span style={{ color:C.muted, marginLeft:8, fontSize:10 }}>hidden</span>}
                   </div>
                 ))}
@@ -3518,7 +3564,7 @@ function StoryBibleViewer({ bible }) {
 // ── Continuity Report Card ───────────────────────────────────
 
 function ContinuityRow({ label, status, notes }) {
-  const statusColor = status==="pass" ? "#70B0A0" : status==="warning" ? "#C8A030" : "#E04040";
+  const statusColor = status==="pass" ? "#2D8B7A" : status==="warning" ? "#B07A1F" : "#B8342D";
   const statusIcon = status==="pass" ? "✓" : status==="warning" ? "⚠" : "✗";
   return (
     <div style={{ marginBottom:notes&&notes.length?10:8 }}>
@@ -3546,30 +3592,30 @@ function ContinuityRow({ label, status, notes }) {
 function RevisionPatch({ patch, onApply, onAcknowledge }) {
   if (!patch) return null;
   return (
-    <div style={{ marginTop:12, padding:"14px 16px", background:"#2A1F08", border:"1px solid #C8A030", borderRadius:8 }}>
+    <div style={{ marginTop:12, padding:"14px 16px", background:"#FAF5E8", border:"1px solid #B07A1F", borderRadius:8 }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10, flexWrap:"wrap", gap:8 }}>
-        <div style={{ color:"#E8B840", fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>
+        <div style={{ color:"#B07A1F", fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>
           ⚠ Revision Patch · Warning
         </div>
-        <span style={{ padding:"2px 8px", background:"#C8A03022", border:"1px solid #C8A030", borderRadius:10, fontSize:10, color:"#E8B840", fontWeight:700 }}>
+        <span style={{ padding:"2px 8px", background:"#B07A1F22", border:"1px solid #B07A1F", borderRadius:10, fontSize:10, color:"#B07A1F", fontWeight:700 }}>
           REVIEW BEFORE CONTINUING
         </span>
       </div>
       <div style={{ display:"grid", gap:8, fontSize:12, color:C.text, lineHeight:1.6 }}>
-        <div><span style={{ color:"#E8B840", fontWeight:600 }}>Issue:</span> {patch.issue}</div>
-        <div><span style={{ color:"#E8B840", fontWeight:600 }}>Location:</span> {patch.location}</div>
-        <div><span style={{ color:"#E8B840", fontWeight:600 }}>Recommended change:</span> {patch.recommendedChange}</div>
+        <div><span style={{ color:"#B07A1F", fontWeight:600 }}>Issue:</span> {patch.issue}</div>
+        <div><span style={{ color:"#B07A1F", fontWeight:600 }}>Location:</span> {patch.location}</div>
+        <div><span style={{ color:"#B07A1F", fontWeight:600 }}>Recommended change:</span> {patch.recommendedChange}</div>
         {patch.revisedText && (
-          <div style={{ padding:"10px 12px", background:C.bg, borderLeft:"3px solid #C8A030", borderRadius:4, fontStyle:"italic", color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:13, lineHeight:1.7 }}>
+          <div style={{ padding:"10px 12px", background:C.manuscript, borderLeft:"3px solid #B07A1F", borderRadius:4, fontStyle:"italic", color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:13, lineHeight:1.7 }}>
             "{patch.revisedText}"
           </div>
         )}
-        <div style={{ color:C.muted, fontSize:11 }}><span style={{ color:"#E8B840", fontWeight:600 }}>Why:</span> {patch.reason}</div>
+        <div style={{ color:C.muted, fontSize:11 }}><span style={{ color:"#B07A1F", fontWeight:600 }}>Why:</span> {patch.reason}</div>
       </div>
       <div style={{ display:"flex", gap:8, marginTop:14, flexWrap:"wrap" }}>
         {patch.revisedText && (
           <button onClick={onApply}
-            style={{ padding:"7px 14px", background:"#C8A030", color:C.bg, border:"none", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+            style={{ padding:"7px 14px", background:"#B07A1F", color:C.bg, border:"none", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
             ✓ Apply suggested text
           </button>
         )}
@@ -3584,50 +3630,50 @@ function RevisionPatch({ patch, onApply, onAcknowledge }) {
 
 function RepairReport({ report, onMarkResolved, onRegenerate }) {
   if (!report) return null;
-  const sevColor = report.severity === "critical" ? "#E04040" : "#D88830";
+  const sevColor = report.severity === "critical" ? "#B8342D" : "#D88830";
   return (
-    <div style={{ marginTop:12, padding:"16px 18px", background:"#3A1010", border:"2px solid #E04040", borderRadius:10 }}>
+    <div style={{ marginTop:12, padding:"16px 18px", background:"#FBE9E7", border:"2px solid #B8342D", borderRadius:10 }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12, flexWrap:"wrap", gap:8 }}>
-        <div style={{ color:"#E04040", fontSize:12, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>
+        <div style={{ color:"#B8342D", fontSize:12, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>
           🛑 Continuity Repair Report · FAIL
         </div>
         <span style={{ padding:"3px 10px", background:sevColor+"22", border:"1px solid "+sevColor, borderRadius:10, fontSize:10, color:sevColor, fontWeight:700, textTransform:"uppercase" }}>
           {report.severity} · {report.issueType}
         </span>
       </div>
-      <div style={{ padding:"10px 14px", background:"rgba(0,0,0,0.4)", borderLeft:"3px solid #E04040", borderRadius:4, marginBottom:14, color:C.text, fontSize:13, lineHeight:1.7, fontStyle:"italic" }}>
+      <div style={{ padding:"10px 14px", background:"rgba(255,255,255,0.6)", borderLeft:"3px solid #B8342D", borderRadius:4, marginBottom:14, color:C.text, fontSize:13, lineHeight:1.7, fontStyle:"italic" }}>
         "{report.contradiction}"
       </div>
       <div style={{ display:"grid", gap:8, fontSize:12, color:C.text, lineHeight:1.6, marginBottom:14 }}>
         {report.affectedChapters && report.affectedChapters.length > 0 && (
-          <div><span style={{ color:"#E04040", fontWeight:600 }}>Affected chapters:</span> {report.affectedChapters.map(c=>"Ch "+c).join(", ")}</div>
+          <div><span style={{ color:"#B8342D", fontWeight:600 }}>Affected chapters:</span> {report.affectedChapters.map(c=>"Ch "+c).join(", ")}</div>
         )}
         {report.affectedCharacters && report.affectedCharacters.length > 0 && (
-          <div><span style={{ color:"#E04040", fontWeight:600 }}>Affected characters:</span> {report.affectedCharacters.join(", ")}</div>
+          <div><span style={{ color:"#B8342D", fontWeight:600 }}>Affected characters:</span> {report.affectedCharacters.join(", ")}</div>
         )}
       </div>
       <div style={{ marginBottom:14 }}>
-        <div style={{ color:"#E04040", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Repair options:</div>
+        <div style={{ color:"#B8342D", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Repair options:</div>
         <div style={{ display:"grid", gap:6 }}>
           {(report.repairOptions||[]).map((opt, i)=>(
-            <div key={i} style={{ padding:"8px 12px", background:"rgba(0,0,0,0.3)", border:"1px solid "+C.borderLight, borderRadius:5, fontSize:12, color:C.text }}>
-              <span style={{ color:"#E04040", fontWeight:700, marginRight:6 }}>{i+1}.</span> {opt}
+            <div key={i} style={{ padding:"8px 12px", background:"rgba(255,255,255,0.5)", border:"1px solid "+C.borderLight, borderRadius:5, fontSize:12, color:C.text }}>
+              <span style={{ color:"#B8342D", fontWeight:700, marginRight:6 }}>{i+1}.</span> {opt}
             </div>
           ))}
         </div>
       </div>
       {report.recommendedFix && (
-        <div style={{ padding:"10px 14px", background:"rgba(112, 176, 160, 0.1)", border:"1px solid #70B0A0", borderRadius:6, marginBottom:14 }}>
-          <span style={{ color:"#70B0A0", fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginRight:6 }}>Editor recommends:</span>
+        <div style={{ padding:"10px 14px", background:"rgba(45,139,122,0.10)", border:"1px solid #2D8B7A", borderRadius:6, marginBottom:14 }}>
+          <span style={{ color:"#2D8B7A", fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginRight:6 }}>Editor recommends:</span>
           <span style={{ color:C.text, fontSize:12 }}>{report.recommendedFix}</span>
         </div>
       )}
-      <div style={{ padding:"8px 12px", background:"rgba(0,0,0,0.3)", borderRadius:4, color:C.muted, fontSize:11, fontStyle:"italic", marginBottom:14 }}>
+      <div style={{ padding:"8px 12px", background:"rgba(255,255,255,0.5)", borderRadius:4, color:C.muted, fontSize:11, fontStyle:"italic", marginBottom:14 }}>
         💡 Subsequent chapters are blocked until this is resolved. Options: regenerate this chapter, edit the chapter manually, update the Story Bible to match the new direction, or mark as resolved (override).
       </div>
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
         <button onClick={onRegenerate}
-          style={{ padding:"8px 14px", background:"#E04040", color:"#FFF", border:"none", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+          style={{ padding:"8px 14px", background:"#B8342D", color:"#FFF", border:"none", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
           🔄 Regenerate chapter
         </button>
         <button onClick={onMarkResolved}
@@ -3647,7 +3693,7 @@ function ContinuityReportCard({ report, onApplyPatch, onAcknowledgePatch, onMark
     [report.characterConsistency, report.timelineConsistency, report.relationshipConsistency, report.plotConsistency]
       .some(c=>c && c.status==="warning") ? "WARNING" : "PASS"
   );
-  const statusColor = status==="PASS" ? "#70B0A0" : status==="WARNING" ? "#C8A030" : "#E04040";
+  const statusColor = status==="PASS" ? "#2D8B7A" : status==="WARNING" ? "#B07A1F" : "#B8342D";
   const statusIcon = status==="PASS" ? "✓" : status==="WARNING" ? "⚠" : "✗";
   return (
     <>
@@ -3672,12 +3718,12 @@ function ContinuityReportCard({ report, onApplyPatch, onAcknowledgePatch, onMark
           </div>
         )}
         {status === "PASS" && (
-          <div style={{ marginTop:10, padding:"8px 12px", background:"rgba(112, 176, 160, 0.1)", borderLeft:"3px solid #70B0A0", borderRadius:4, color:"#70B0A0", fontSize:11, fontWeight:600 }}>
+          <div style={{ marginTop:10, padding:"8px 12px", background:"rgba(45,139,122,0.10)", borderLeft:"3px solid #2D8B7A", borderRadius:4, color:"#2D8B7A", fontSize:11, fontWeight:600 }}>
             ✓ Continuity verified · Next chapter may be drafted
           </div>
         )}
         {report.resolved && status !== "PASS" && (
-          <div style={{ marginTop:10, padding:"8px 12px", background:"rgba(112, 176, 160, 0.1)", borderLeft:"3px solid #70B0A0", borderRadius:4, color:"#70B0A0", fontSize:11, fontWeight:600 }}>
+          <div style={{ marginTop:10, padding:"8px 12px", background:"rgba(45,139,122,0.10)", borderLeft:"3px solid #2D8B7A", borderRadius:4, color:"#2D8B7A", fontSize:11, fontWeight:600 }}>
             ✓ Marked resolved by author · Next chapter unblocked
           </div>
         )}
@@ -3801,8 +3847,8 @@ function SceneCard({ scene, chapterNum, prose, summary, locked, editing, status,
 
   const statusColors = {
     notStarted: { c:C.muted, bg:"transparent", label:"NOT STARTED" },
-    drafting:   { c:"#C8A030", bg:"rgba(200,160,48,0.15)", label:"DRAFTING" },
-    complete:   { c:"#70B0A0", bg:"rgba(112,176,160,0.15)", label:"COMPLETE" },
+    drafting:   { c:"#B07A1F", bg:"rgba(200,160,48,0.15)", label:"DRAFTING" },
+    complete:   { c:"#2D8B7A", bg:"rgba(45,139,122,0.10)", label:"COMPLETE" },
     locked:     { c:C.gold, bg:C.glow, label:"LOCKED" }
   };
   const st = statusColors[status] || statusColors.notStarted;
@@ -3860,12 +3906,12 @@ function SceneCard({ scene, chapterNum, prose, summary, locked, editing, status,
           <div style={{ marginBottom:6 }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
               <span style={{ color:C.muted, fontSize:10 }}>
-                <span style={{ color: atTarget?"#70B0A0":C.amber, fontWeight:700 }}>{wordCount.toLocaleString()}</span> / {target.toLocaleString()} words
+                <span style={{ color: atTarget?"#2D8B7A":C.amber, fontWeight:700 }}>{wordCount.toLocaleString()}</span> / {target.toLocaleString()} words
               </span>
               <span style={{ color:C.muted, fontSize:10 }}>{pct}%</span>
             </div>
             <div style={{ height:3, background:C.surface, borderRadius:2, overflow:"hidden" }}>
-              <div style={{ height:"100%", width:pct+"%", background: atTarget ? "linear-gradient(90deg, #70B0A0, "+C.gold+")" : C.amber, transition:"width 0.4s" }}/>
+              <div style={{ height:"100%", width:pct+"%", background: atTarget ? "linear-gradient(90deg, #2D8B7A, "+C.gold+")" : C.amber, transition:"width 0.4s" }}/>
             </div>
           </div>
           <div style={{ padding:12, background:C.surface, border:"1px solid "+C.borderLight, borderRadius:6,
@@ -3921,18 +3967,18 @@ function SceneCard({ scene, chapterNum, prose, summary, locked, editing, status,
 
           {/* Scene summary card */}
           {summary && (
-            <div style={{ marginTop:8, padding:"8px 12px", background:"rgba(112,176,160,0.05)", border:"1px solid rgba(112,176,160,0.3)", borderRadius:5 }}>
-              <div style={{ color:"#70B0A0", fontSize:9, letterSpacing:1, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>
+            <div style={{ marginTop:8, padding:"8px 12px", background:"rgba(45,139,122,0.12)", border:"1px solid rgba(45,139,122,0.12)", borderRadius:5 }}>
+              <div style={{ color:"#2D8B7A", fontSize:9, letterSpacing:1, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>
                 Scene Summary
               </div>
               {summary.majorEvents && summary.majorEvents.length > 0 && (
                 <div style={{ color:C.muted, fontSize:10, marginBottom:2 }}>
-                  <span style={{ color:"#70B0A0" }}>Events:</span> {summary.majorEvents.join("; ")}
+                  <span style={{ color:"#2D8B7A" }}>Events:</span> {summary.majorEvents.join("; ")}
                 </div>
               )}
               {summary.relationshipChanges && summary.relationshipChanges.length > 0 && (
                 <div style={{ color:C.muted, fontSize:10, marginBottom:2 }}>
-                  <span style={{ color:"#70B0A0" }}>Relationship:</span> {summary.relationshipChanges.join("; ")}
+                  <span style={{ color:"#2D8B7A" }}>Relationship:</span> {summary.relationshipChanges.join("; ")}
                 </div>
               )}
               {summary.unresolvedThreads && summary.unresolvedThreads.length > 0 && (
@@ -3981,11 +4027,11 @@ function ChapterCard({ ch, prose, report, summary, editing, onWrite, onContinue,
   React.useEffect(()=>{ if (editing) setEditBuffer(prose||""); }, [editing, prose]);
 
   // Status badge color
-  const statusColor = report ? (report.status==="PASS"?"#70B0A0":report.status==="WARNING"?"#C8A030":"#E04040") : null;
+  const statusColor = report ? (report.status==="PASS"?"#2D8B7A":report.status==="WARNING"?"#B07A1F":"#B8342D") : null;
 
   return (
     <div style={{ padding:18, background:C.card,
-                  border:"1px solid "+(blocked ? "#E04040" : statusColor || C.border),
+                  border:"1px solid "+(blocked ? "#B8342D" : statusColor || C.border),
                   borderRadius:10, marginBottom:14,
                   opacity: blocked ? 0.7 : 1 }}>
       <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:8, flexWrap:"wrap", gap:8 }}>
@@ -4035,7 +4081,7 @@ function ChapterCard({ ch, prose, report, summary, editing, onWrite, onContinue,
       )}
 
       {blocked && (
-        <div style={{ marginBottom:12, padding:"10px 14px", background:"#3A1010", border:"1px solid #E04040", borderRadius:6, color:"#E04040", fontSize:12 }}>
+        <div style={{ marginBottom:12, padding:"10px 14px", background:"#FBE9E7", border:"1px solid #B8342D", borderRadius:6, color:"#B8342D", fontSize:12 }}>
           🛑 Cannot draft until prior chapter is resolved · {blockReason}
         </div>
       )}
@@ -4055,12 +4101,12 @@ function ChapterCard({ ch, prose, report, summary, editing, onWrite, onContinue,
           <div style={{ marginTop:8, marginBottom:8 }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
               <span style={{ color:C.muted, fontSize:11 }}>
-                <span style={{ color: atTarget?"#70B0A0":C.amber, fontWeight:700 }}>{wordCount.toLocaleString()}</span> / {target.toLocaleString()} words
+                <span style={{ color: atTarget?"#2D8B7A":C.amber, fontWeight:700 }}>{wordCount.toLocaleString()}</span> / {target.toLocaleString()} words
               </span>
               <span style={{ color:C.muted, fontSize:11 }}>{pct}%</span>
             </div>
             <div style={{ height:5, background:C.bg, border:"1px solid "+C.borderLight, borderRadius:3, overflow:"hidden" }}>
-              <div style={{ height:"100%", width:pct+"%", background: atTarget? "linear-gradient(90deg, #70B0A0, "+C.gold+")" : C.amber, transition:"width 0.4s" }}/>
+              <div style={{ height:"100%", width:pct+"%", background: atTarget? "linear-gradient(90deg, #2D8B7A, "+C.gold+")" : C.amber, transition:"width 0.4s" }}/>
             </div>
           </div>
 
@@ -4179,7 +4225,7 @@ function ChapterCard({ ch, prose, report, summary, editing, onWrite, onContinue,
               )}
               {summary.closedThreads && summary.closedThreads.length > 0 && (
                 <div style={{ color:C.muted, fontSize:11 }}>
-                  <span style={{ color:"#70B0A0", fontWeight:600 }}>Resolved:</span> {summary.closedThreads.join("; ")}
+                  <span style={{ color:"#2D8B7A", fontWeight:600 }}>Resolved:</span> {summary.closedThreads.join("; ")}
                 </div>
               )}
             </div>
@@ -4226,7 +4272,7 @@ function PublishingStudio({ story, outline, bible, packageData, generating, prog
 
   const Score = ({ value, max=10 }) => {
     const v = typeof value === "number" ? value : 0;
-    const color = v >= 8 ? "#70B0A0" : v >= 6 ? "#C8A030" : "#D88830";
+    const color = v >= 8 ? "#2D8B7A" : v >= 6 ? "#B07A1F" : "#D88830";
     return <span style={{ padding:"1px 7px", background:color+"22", border:"1px solid "+color, borderRadius:8, fontSize:10, color:color, fontWeight:700 }}>{v}/{max}</span>;
   };
 
@@ -4268,10 +4314,10 @@ function PublishingStudio({ story, outline, bible, packageData, generating, prog
         </div>
       </div>
 
-      {error && <div style={{ marginBottom:14, padding:"10px 14px", background:"#3A1010", border:"1px solid #E04040", borderRadius:6, color:"#E04040", fontSize:12 }}>⚠ {error}</div>}
+      {error && <div style={{ marginBottom:14, padding:"10px 14px", background:"#FBE9E7", border:"1px solid #B8342D", borderRadius:6, color:"#B8342D", fontSize:12 }}>⚠ {error}</div>}
 
       {generating && !packageData && (
-        <div style={{ padding:"14px 18px", background:C.bg, borderLeft:"3px solid "+C.gold, borderRadius:4, color:C.amber, fontSize:12, fontStyle:"italic", marginBottom:14 }}>
+        <div style={{ padding:"14px 18px", background:C.manuscript, borderLeft:"3px solid "+C.gold, borderRadius:4, color:C.amber, fontSize:12, fontStyle:"italic", marginBottom:14 }}>
           {progress || "Generating comprehensive book launch package (3 AI calls)..."}
         </div>
       )}
@@ -4293,7 +4339,7 @@ function PublishingStudio({ story, outline, bible, packageData, generating, prog
           </div>
           {ready.strengths && ready.strengths.length > 0 && (
             <div style={{ marginBottom:8 }}>
-              <div style={{ color:"#70B0A0", fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>Strengths</div>
+              <div style={{ color:"#2D8B7A", fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>Strengths</div>
               <ul style={{ margin:0, paddingLeft:20, color:C.text, fontSize:12, lineHeight:1.6 }}>
                 {ready.strengths.map((s,i)=><li key={i}>{s}</li>)}
               </ul>
@@ -4308,7 +4354,7 @@ function PublishingStudio({ story, outline, bible, packageData, generating, prog
             </div>
           )}
           {ready.publishingRecommendation && (
-            <div style={{ padding:"10px 14px", background:C.bg, borderLeft:"3px solid "+C.gold, borderRadius:4, color:C.text, fontSize:13, lineHeight:1.6, fontStyle:"italic" }}>
+            <div style={{ padding:"10px 14px", background:C.manuscript, borderLeft:"3px solid "+C.gold, borderRadius:4, color:C.text, fontSize:13, lineHeight:1.6, fontStyle:"italic" }}>
               💡 {ready.publishingRecommendation}
             </div>
           )}
@@ -4322,7 +4368,7 @@ function PublishingStudio({ story, outline, bible, packageData, generating, prog
             <div><span style={{ color:C.amber, fontWeight:600 }}>Primary Genre: </span>{pos.primaryGenre}</div>
             <div><span style={{ color:C.amber, fontWeight:600 }}>Secondary Genre: </span>{pos.secondaryGenre}</div>
             <div><span style={{ color:C.amber, fontWeight:600 }}>Reader Audience: </span>{pos.readerAudience}</div>
-            <div style={{ padding:"10px 12px", background:C.bg, borderLeft:"3px solid "+C.gold, borderRadius:4, fontFamily:"Cormorant Garamond, serif", fontSize:15, fontStyle:"italic" }}>
+            <div style={{ padding:"10px 12px", background:C.manuscript, borderLeft:"3px solid "+C.gold, borderRadius:4, fontFamily:"Cormorant Garamond, serif", fontSize:15, fontStyle:"italic" }}>
               "{pos.readerPromise}"
             </div>
             <div style={{ color:C.muted, fontSize:11 }}><span style={{ color:C.amber, fontWeight:600 }}>Category Placement: </span>{pos.categoryPlacement}</div>
@@ -4372,7 +4418,7 @@ function PublishingStudio({ story, outline, bible, packageData, generating, prog
             )}
             {rp.moodDescription && <div><span style={{ color:C.amber, fontWeight:600 }}>Mood: </span>{rp.moodDescription}</div>}
             {rp.targetEmotionalState && (
-              <div style={{ padding:"10px 12px", background:C.bg, borderLeft:"3px solid "+C.gold, borderRadius:4, fontStyle:"italic" }}>
+              <div style={{ padding:"10px 12px", background:C.manuscript, borderLeft:"3px solid "+C.gold, borderRadius:4, fontStyle:"italic" }}>
                 Reader finishes feeling: {rp.targetEmotionalState}
               </div>
             )}
@@ -5025,7 +5071,7 @@ function ChapterBuilder({ story, universe }) {
         </div>
       )}
 
-      {err && <div style={{ color:"#E04040", fontSize:12, marginBottom:12, padding:"8px 12px", background:"#3A1010", border:"1px solid #E04040", borderRadius:6 }}>⚠ {err}</div>}
+      {err && <div style={{ color:"#B8342D", fontSize:12, marginBottom:12, padding:"8px 12px", background:"#FBE9E7", border:"1px solid #B8342D", borderRadius:6 }}>⚠ {err}</div>}
 
       {bible && <StoryBibleViewer bible={bible}/>}
 
@@ -5058,9 +5104,9 @@ function ChapterBuilder({ story, universe }) {
 
             return (
               <div key={ch.number} style={{ padding:18, background:C.card,
-                                            border:"1px solid "+(priorFail && !chapterProse[ch.number] ? "#E04040" :
+                                            border:"1px solid "+(priorFail && !chapterProse[ch.number] ? "#B8342D" :
                                               (chapterReports[ch.number] ?
-                                                (chapterReports[ch.number].status==="PASS"?"#70B0A0":chapterReports[ch.number].status==="WARNING"?"#C8A030":"#E04040") :
+                                                (chapterReports[ch.number].status==="PASS"?"#2D8B7A":chapterReports[ch.number].status==="WARNING"?"#B07A1F":"#B8342D") :
                                                 C.border)),
                                             borderRadius:10, marginBottom:14,
                                             opacity: priorFail && !chapterProse[ch.number] ? 0.7 : 1 }}>
@@ -5085,10 +5131,10 @@ function ChapterBuilder({ story, universe }) {
                     )}
                     {chapterReports[ch.number] && (
                       <span style={{ padding:"2px 8px",
-                                     background: (chapterReports[ch.number].status==="PASS"?"#70B0A0":chapterReports[ch.number].status==="WARNING"?"#C8A030":"#E04040")+"22",
-                                     border:"1px solid "+(chapterReports[ch.number].status==="PASS"?"#70B0A0":chapterReports[ch.number].status==="WARNING"?"#C8A030":"#E04040"),
+                                     background: (chapterReports[ch.number].status==="PASS"?"#2D8B7A":chapterReports[ch.number].status==="WARNING"?"#B07A1F":"#B8342D")+"22",
+                                     border:"1px solid "+(chapterReports[ch.number].status==="PASS"?"#2D8B7A":chapterReports[ch.number].status==="WARNING"?"#B07A1F":"#B8342D"),
                                      borderRadius:10, fontSize:10,
-                                     color: chapterReports[ch.number].status==="PASS"?"#70B0A0":chapterReports[ch.number].status==="WARNING"?"#C8A030":"#E04040",
+                                     color: chapterReports[ch.number].status==="PASS"?"#2D8B7A":chapterReports[ch.number].status==="WARNING"?"#B07A1F":"#B8342D",
                                      fontWeight:700 }}>
                         {chapterReports[ch.number].status}
                       </span>
@@ -5104,7 +5150,7 @@ function ChapterBuilder({ story, universe }) {
                 {ch.continuityNotes && <div style={{ color:C.muted, fontSize:11, marginBottom:10 }}><span style={{ color:C.amber, fontWeight:600 }}>Continuity:</span> {ch.continuityNotes}</div>}
 
                 {priorFail && !chapterProse[ch.number] && (
-                  <div style={{ marginBottom:12, padding:"10px 14px", background:"#3A1010", border:"1px solid #E04040", borderRadius:6, color:"#E04040", fontSize:12 }}>
+                  <div style={{ marginBottom:12, padding:"10px 14px", background:"#FBE9E7", border:"1px solid #B8342D", borderRadius:6, color:"#B8342D", fontSize:12 }}>
                     🛑 Cannot draft until prior chapter is resolved
                   </div>
                 )}
@@ -5273,10 +5319,10 @@ function MarketDashboard({ story }) {
         <ScoreBar label="Emotional Depth"          value={s.emotionalDepth||0}        color="#D88830"/>
         <ScoreBar label="Commercial Familiarity"   value={s.commercialFamiliarity||0} color={C.gold}/>
         <ScoreBar label="Originality"              value={s.originality||0}           color="#A070C8"/>
-        <ScoreBar label="Series Potential"         value={s.seriesPotential||0}       color="#70B0A0"/>
+        <ScoreBar label="Series Potential"         value={s.seriesPotential||0}       color="#2D8B7A"/>
         <ScoreBar label="Romance Satisfaction"     value={s.romanceSatisfaction||0}   color="#C05060"/>
         <ScoreBar label="Mystery / Suspense"       value={s.mysteryStrength||0}       color="#4888C8"/>
-        <ScoreBar label="Power & Purpose Alignment" value={s.powerPurposeAlignment||0} color="#C8A030"/>
+        <ScoreBar label="Power & Purpose Alignment" value={s.powerPurposeAlignment||0} color="#B07A1F"/>
       </div>
 
       {(story.familiarElements || story.uniqueDifferentiator || story.emotionalPayoff || story.adaptationPotential) && (
@@ -5364,7 +5410,7 @@ function ActivatedPatternsCard({ patterns, calibration, currentSpice, currentInt
                 💡 Suggested Calibration (from these patterns)
               </div>
               {matches && (
-                <span style={{ padding:"2px 8px", background:"rgba(112, 176, 160, 0.15)", border:"1px solid #70B0A0", borderRadius:10, fontSize:10, color:"#70B0A0", fontWeight:700 }}>
+                <span style={{ padding:"2px 8px", background:"rgba(45,139,122,0.10)", border:"1px solid #2D8B7A", borderRadius:10, fontSize:10, color:"#2D8B7A", fontWeight:700 }}>
                   ✓ APPLIED
                 </span>
               )}
@@ -5774,7 +5820,7 @@ function UniverseDetail({ universe, onBack, onUpdate, onBuildBook, onDelete }) {
           </div>
         )}
         {universe.vision && (
-          <div style={{ marginTop:14, padding:"14px 18px", background:C.bg, borderLeft:"3px solid "+C.gold,
+          <div style={{ marginTop:14, padding:"14px 18px", background:C.manuscript, borderLeft:"3px solid "+C.gold,
                         borderRadius:4, color:C.text, fontSize:14, lineHeight:1.6, fontStyle:"italic" }}>
             {universe.vision}
           </div>
@@ -5796,7 +5842,7 @@ function UniverseDetail({ universe, onBack, onUpdate, onBuildBook, onDelete }) {
             Delete Universe
           </button>
         </div>
-        {err && <div style={{ marginTop:14, padding:"10px 14px", background:"#3A1010", border:"1px solid #E04040", borderRadius:6, color:"#F5D5D5", fontSize:12 }}>⚠ {err}</div>}
+        {err && <div style={{ marginTop:14, padding:"10px 14px", background:"#FBE9E7", border:"1px solid #B8342D", borderRadius:6, color:"#B8342D", fontSize:12 }}>⚠ {err}</div>}
       </div>
 
       {universe.books && universe.books.length > 0 && (
@@ -5886,7 +5932,7 @@ function UniverseBuilder({ universes, onCreate, onOpen, onDelete }) {
 
 // ── Main App ──────────────────────────────────────────────────
 
-export default function RomanceStoryOS() {
+export default function App() {
   const [laneVals, setLaneVals] = useState({
     healing:5, community:0, luxury:7, family:0, urban:0, reinvention:0, suspense:0, faith:0
   });
@@ -6458,7 +6504,7 @@ export default function RomanceStoryOS() {
         </div>
 
         {err && (
-          <div style={{ padding:"14px 18px", background:"#3A1010", border:"1px solid #E04040", borderRadius:8, color:"#F5D5D5", fontSize:13, marginBottom:20 }}>
+          <div style={{ padding:"14px 18px", background:"#FBE9E7", border:"1px solid #B8342D", borderRadius:8, color:"#B8342D", fontSize:13, marginBottom:20 }}>
             ⚠ Generation failed: {err}
           </div>
         )}
