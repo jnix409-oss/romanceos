@@ -35,7 +35,7 @@ const LANES = [
 const GENRE_PRESETS = [
   { id:"power_purpose_romance", label:"Power & Purpose", icon:"💼",
     lanes:{ healing:4, community:1, luxury:4, family:2, urban:0, reinvention:4, suspense:0, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:0, streetLit:0, crimeSaga:0 },
-    tropes:["Workplace Romance","Billionaire / CEO","Enemies to Lovers","Forced Proximity"], heat:3, spiceLevel:3,
+    tropes:["Woman in Leadership","Enemies to Lovers","Building an Empire","Reinvention Journey"], heat:3, spiceLevel:3,
     romanceIntensity:{ attractionIntensity:3, emotionalIntimacy:5, physicalAffection:3, relationshipFocus:5 } },
   { id:"black_billionaire_romance", label:"Black Billionaire", icon:"👑",
     lanes:{ healing:2, community:0, luxury:6, family:2, urban:0, reinvention:1, suspense:0, faith:0, eroticUrban:0, sexyContemp:1, eroticDrama:0, luxuryErotic:3, streetLit:0, crimeSaga:0 },
@@ -63,11 +63,11 @@ const GENRE_PRESETS = [
     romanceIntensity:{ attractionIntensity:5, emotionalIntimacy:3, physicalAffection:4, relationshipFocus:5 } },
   { id:"street_lit", label:"Street Lit", icon:"🏙️",
     lanes:{ healing:0, community:1, luxury:1, family:2, urban:5, reinvention:0, suspense:2, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:1, luxuryErotic:0, streetLit:8, crimeSaga:2 },
-    tropes:["Family Empire","Protective Hero","Enemies to Lovers","Second Chance"], heat:3, spiceLevel:3,
+    tropes:["Street to Legit","Loyalty Betrayal","The Setup","Protect the Family"], heat:3, spiceLevel:3,
     romanceIntensity:{ attractionIntensity:4, emotionalIntimacy:2, physicalAffection:3, relationshipFocus:2 } },
   { id:"crime_family_saga", label:"Crime Family Saga", icon:"💰",
     lanes:{ healing:0, community:0, luxury:2, family:5, urban:4, reinvention:0, suspense:2, faith:0, eroticUrban:0, sexyContemp:0, eroticDrama:0, luxuryErotic:0, streetLit:3, crimeSaga:7 },
-    tropes:["Family Empire","Forbidden Love","Protective Hero","Enemies to Lovers"], heat:2, spiceLevel:2,
+    tropes:["Family Empire","Legacy Under Threat","Family Betrayal","The Next Generation"], heat:2, spiceLevel:2,
     romanceIntensity:{ attractionIntensity:3, emotionalIntimacy:2, physicalAffection:2, relationshipFocus:2 } },
   { id:"kingpin_romance", label:"Kingpin Romance", icon:"♠️",
     lanes:{ healing:0, community:0, luxury:2, family:3, urban:5, reinvention:0, suspense:2, faith:0, eroticUrban:3, sexyContemp:0, eroticDrama:3, luxuryErotic:0, streetLit:4, crimeSaga:4 },
@@ -104,14 +104,238 @@ const GENRE_PRESETS = [
   { id:"custom", label:"Custom", icon:"✦", lanes:null, tropes:null, heat:null, spiceLevel:null, romanceIntensity:null },
 ];
 
-const TROPES = [
-  "Enemies to Lovers","Forced Proximity","Billionaire / CEO","Secret Baby",
-  "Fake Dating","Second Chance","Small Town Return","Single Parent",
-  "Workplace Romance","Family Empire","Marriage of Convenience","Opposites Attract",
-  "Best Friend's Sibling","Forbidden Love","Age Gap","Grumpy x Sunshine",
-  "Hurt / Comfort","Protective Hero","Friends to Lovers","Reunited Lovers",
-  "Office Rivals","Redemption Arc","Sports Romance","Military Romance",
+const TROPES_DATABASE = [
+  // ── ROMANCE CORE ──
+  { name:"Enemies to Lovers", category:"Romance Core", primaryGenre:"Romance", heatLevel:3, conflictLevel:4, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Forced Proximity","Fake Relationship","Forbidden Love"] },
+  { name:"Friends to Lovers", category:"Romance Core", primaryGenre:"Romance", heatLevel:2, conflictLevel:2, romanceLevel:5, dangerLevel:1, seriesFriendly:true, worksWith:["Second Chance Romance","Childhood Sweethearts"] },
+  { name:"Second Chance Romance", category:"Romance Core", primaryGenre:"Romance", heatLevel:3, conflictLevel:4, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Friends to Lovers","Forbidden Love","Marriage in Trouble"] },
+  { name:"Forced Proximity", category:"Romance Core", primaryGenre:"Romance", heatLevel:3, conflictLevel:3, romanceLevel:5, dangerLevel:2, seriesFriendly:false, worksWith:["Enemies to Lovers","Only One Bed","Fake Relationship"] },
+  { name:"Opposites Attract", category:"Romance Core", primaryGenre:"Romance", heatLevel:2, conflictLevel:3, romanceLevel:5, dangerLevel:1, seriesFriendly:true, worksWith:["Grumpy Sunshine","Black Cat & Golden Retriever"] },
+  { name:"Fake Relationship", category:"Romance Core", primaryGenre:"Romance", heatLevel:3, conflictLevel:3, romanceLevel:5, dangerLevel:1, seriesFriendly:false, worksWith:["Enemies to Lovers","Forced Proximity","Marriage of Convenience"] },
+  { name:"Marriage of Convenience", category:"Romance Core", primaryGenre:"Romance", heatLevel:3, conflictLevel:4, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Fake Relationship","Forbidden Love","Enemies to Lovers"] },
+  { name:"Forbidden Love", category:"Romance Core", primaryGenre:"Romance", heatLevel:4, conflictLevel:5, romanceLevel:5, dangerLevel:3, seriesFriendly:true, worksWith:["Secret Relationship","Family Disapproves","Enemies to Lovers"] },
+  { name:"Secret Relationship", category:"Romance Core", primaryGenre:"Romance", heatLevel:3, conflictLevel:4, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Forbidden Love","Fake Relationship","Boss & Employee"] },
+  { name:"Childhood Sweethearts", category:"Romance Core", primaryGenre:"Romance", heatLevel:2, conflictLevel:3, romanceLevel:5, dangerLevel:1, seriesFriendly:true, worksWith:["Second Chance Romance","Friends to Lovers"] },
+  { name:"Workplace Romance", category:"Romance Core", primaryGenre:"Romance", heatLevel:3, conflictLevel:4, romanceLevel:5, dangerLevel:1, seriesFriendly:true, worksWith:["Boss & Employee","Enemies to Lovers","Forced Proximity"] },
+
+  // ── ROMANCE HIGH HEAT ──
+  { name:"Only One Bed", category:"Romance High Heat", primaryGenre:"Romance", heatLevel:4, conflictLevel:2, romanceLevel:5, dangerLevel:1, seriesFriendly:false, worksWith:["Forced Proximity","Enemies to Lovers","Grumpy Sunshine"] },
+  { name:"Touch Her and Die", category:"Romance High Heat", primaryGenre:"Romance", heatLevel:4, conflictLevel:4, romanceLevel:5, dangerLevel:3, seriesFriendly:true, worksWith:["Possessive Hero","Protector Romance","Forbidden Love"] },
+  { name:"Possessive Hero", category:"Romance High Heat", primaryGenre:"Romance", heatLevel:4, conflictLevel:4, romanceLevel:5, dangerLevel:3, seriesFriendly:true, worksWith:["Touch Her and Die","Protector Romance","Forbidden Love"] },
+  { name:"Protector Romance", category:"Romance High Heat", primaryGenre:"Romance", heatLevel:3, conflictLevel:4, romanceLevel:5, dangerLevel:3, seriesFriendly:true, worksWith:["Touch Her and Die","Possessive Hero","Loyalty Test"] },
+  { name:"Reformed Player", category:"Romance High Heat", primaryGenre:"Romance", heatLevel:4, conflictLevel:3, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Second Chance Romance","Enemies to Lovers","Unexpected Pregnancy"] },
+  { name:"Age Gap Romance", category:"Romance High Heat", primaryGenre:"Romance", heatLevel:3, conflictLevel:4, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Forbidden Love","Boss & Employee","Family Disapproves"] },
+  { name:"Boss & Employee", category:"Romance High Heat", primaryGenre:"Romance", heatLevel:4, conflictLevel:4, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Forbidden Love","Secret Relationship","Enemies to Lovers"] },
+  { name:"Grumpy Sunshine", category:"Romance High Heat", primaryGenre:"Romance", heatLevel:3, conflictLevel:3, romanceLevel:5, dangerLevel:1, seriesFriendly:true, worksWith:["Opposites Attract","Only One Bed","Forced Proximity"] },
+  { name:"Black Cat & Golden Retriever", category:"Romance High Heat", primaryGenre:"Romance", heatLevel:3, conflictLevel:2, romanceLevel:5, dangerLevel:1, seriesFriendly:true, worksWith:["Opposites Attract","Grumpy Sunshine","Friends to Lovers"] },
+  { name:"Unexpected Pregnancy", category:"Romance High Heat", primaryGenre:"Romance", heatLevel:3, conflictLevel:5, romanceLevel:4, dangerLevel:2, seriesFriendly:true, worksWith:["Secret Baby","Reformed Player","Second Chance Romance"] },
+  { name:"Marriage in Trouble", category:"Romance High Heat", primaryGenre:"Romance", heatLevel:3, conflictLevel:5, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Second Chance Romance","Divorce Recovery","Secret Relationship"] },
+
+  // ── URBAN ROMANCE ──
+  { name:"Ride or Die Love", category:"Urban Romance", primaryGenre:"Urban Romance", heatLevel:4, conflictLevel:5, romanceLevel:5, dangerLevel:4, seriesFriendly:true, worksWith:["Loyalty Test","Power Couple","Protect the Family"] },
+  { name:"Hood Meets Corporate", category:"Urban Romance", primaryGenre:"Urban Romance", heatLevel:3, conflictLevel:4, romanceLevel:4, dangerLevel:3, seriesFriendly:true, worksWith:["Street to Legit","Business and Pleasure","Enemies to Lovers"] },
+  { name:"Dangerous Ex Returns", category:"Urban Romance", primaryGenre:"Urban Romance", heatLevel:4, conflictLevel:5, romanceLevel:4, dangerLevel:5, seriesFriendly:true, worksWith:["Loyalty Test","Someone is Watching","Blackmail"] },
+  { name:"Family Disapproves", category:"Urban Romance", primaryGenre:"Urban Romance", heatLevel:3, conflictLevel:5, romanceLevel:4, dangerLevel:3, seriesFriendly:true, worksWith:["Forbidden Love","Ride or Die Love","Love Across Worlds"] },
+  { name:"Power Couple", category:"Urban Romance", primaryGenre:"Urban Romance", heatLevel:4, conflictLevel:3, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Business and Pleasure","Legacy Builder","Building an Empire"] },
+  { name:"Street Legend Returns", category:"Urban Romance", primaryGenre:"Urban Romance", heatLevel:4, conflictLevel:5, romanceLevel:4, dangerLevel:4, seriesFriendly:true, worksWith:["Street to Legit","Dangerous Ex Returns","Loyalty Test"] },
+  { name:"Love Across Worlds", category:"Urban Romance", primaryGenre:"Urban Romance", heatLevel:3, conflictLevel:4, romanceLevel:5, dangerLevel:3, seriesFriendly:true, worksWith:["Hood Meets Corporate","Forbidden Love","Loyalty Test"] },
+  { name:"Secret Baby", category:"Urban Romance", primaryGenre:"Urban Romance", heatLevel:3, conflictLevel:5, romanceLevel:4, dangerLevel:3, seriesFriendly:true, worksWith:["Unexpected Pregnancy","Second Chance Romance","Family Betrayal"] },
+  { name:"Loyalty Test", category:"Urban Romance", primaryGenre:"Urban Romance", heatLevel:3, conflictLevel:5, romanceLevel:3, dangerLevel:4, seriesFriendly:true, worksWith:["Ride or Die Love","Snitch in the Circle","Family Loyalty Test"] },
+  { name:"Business and Pleasure", category:"Urban Romance", primaryGenre:"Urban Romance", heatLevel:4, conflictLevel:4, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Boss & Employee","Power Couple","Hood Meets Corporate"] },
+
+  // ── STREET LIT ──
+  { name:"Street to Legit", category:"Street Lit", primaryGenre:"Street Lit", heatLevel:3, conflictLevel:5, romanceLevel:2, dangerLevel:5, seriesFriendly:true, worksWith:["Double Life","Hood Meets Corporate","Family Business Front"] },
+  { name:"The Plug", category:"Street Lit", primaryGenre:"Street Lit", heatLevel:2, conflictLevel:5, romanceLevel:1, dangerLevel:5, seriesFriendly:true, worksWith:["Rival Crew","Hidden Money","The Setup"] },
+  { name:"Rival Crew", category:"Street Lit", primaryGenre:"Street Lit", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:5, seriesFriendly:true, worksWith:["Loyalty Betrayal","The Plug","Revenge Mission"] },
+  { name:"Hidden Money", category:"Street Lit", primaryGenre:"Street Lit", heatLevel:2, conflictLevel:5, romanceLevel:1, dangerLevel:4, seriesFriendly:true, worksWith:["Family Business Front","The Setup","Loyalty Betrayal"] },
+  { name:"Snitch in the Circle", category:"Street Lit", primaryGenre:"Street Lit", heatLevel:2, conflictLevel:5, romanceLevel:1, dangerLevel:5, seriesFriendly:true, worksWith:["Loyalty Betrayal","The Setup","Protect the Family"] },
+  { name:"Revenge Mission", category:"Street Lit", primaryGenre:"Street Lit", heatLevel:3, conflictLevel:5, romanceLevel:2, dangerLevel:5, seriesFriendly:true, worksWith:["Rival Crew","Loyalty Betrayal","Family Betrayal"] },
+  { name:"Double Life", category:"Street Lit", primaryGenre:"Street Lit", heatLevel:3, conflictLevel:5, romanceLevel:2, dangerLevel:4, seriesFriendly:true, worksWith:["Street to Legit","Hidden Money","Family Business Front"] },
+  { name:"The Setup", category:"Street Lit", primaryGenre:"Street Lit", heatLevel:2, conflictLevel:5, romanceLevel:1, dangerLevel:5, seriesFriendly:true, worksWith:["Snitch in the Circle","Hidden Money","Loyalty Betrayal"] },
+  { name:"Loyalty Betrayal", category:"Street Lit", primaryGenre:"Street Lit", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:5, seriesFriendly:true, worksWith:["Snitch in the Circle","Family Betrayal","Revenge Mission"] },
+  { name:"Protect the Family", category:"Street Lit", primaryGenre:"Street Lit", heatLevel:3, conflictLevel:5, romanceLevel:3, dangerLevel:5, seriesFriendly:true, worksWith:["Loyalty Betrayal","Family Loyalty Test","Ride or Die Love"] },
+
+  // ── CRIME FAMILY SAGA ──
+  { name:"Family Empire", category:"Crime Family Saga", primaryGenre:"Crime Saga", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:4, seriesFriendly:true, worksWith:["Hidden Heir","Succession War","Family Betrayal","Forbidden Love"] },
+  { name:"Hidden Heir", category:"Crime Family Saga", primaryGenre:"Crime Saga", heatLevel:2, conflictLevel:5, romanceLevel:3, dangerLevel:4, seriesFriendly:true, worksWith:["Family Empire","Secret Bloodline","Succession War"] },
+  { name:"Succession War", category:"Crime Family Saga", primaryGenre:"Crime Saga", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:4, seriesFriendly:true, worksWith:["Family Empire","Hidden Heir","Sibling Rivalry"] },
+  { name:"The Black Sheep", category:"Crime Family Saga", primaryGenre:"Crime Saga", heatLevel:2, conflictLevel:4, romanceLevel:3, dangerLevel:3, seriesFriendly:true, worksWith:["Family Betrayal","Succession War","Generational Curse"] },
+  { name:"Family Business Front", category:"Crime Family Saga", primaryGenre:"Crime Saga", heatLevel:2, conflictLevel:5, romanceLevel:1, dangerLevel:5, seriesFriendly:true, worksWith:["Double Life","Hidden Money","Family Empire"] },
+  { name:"Secret Bloodline", category:"Crime Family Saga", primaryGenre:"Crime Saga", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:4, seriesFriendly:true, worksWith:["Hidden Heir","Family Betrayal","Adoption Revelation"] },
+  { name:"Matriarch Secret", category:"Crime Family Saga", primaryGenre:"Crime Saga", heatLevel:2, conflictLevel:5, romanceLevel:1, dangerLevel:3, seriesFriendly:true, worksWith:["Family Empire","Legacy Under Threat","Family Betrayal"] },
+  { name:"Legacy Under Threat", category:"Crime Family Saga", primaryGenre:"Crime Saga", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:4, seriesFriendly:true, worksWith:["Family Empire","Protect the Family","Succession War"] },
+  { name:"Family Betrayal", category:"Crime Family Saga", primaryGenre:"Crime Saga", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:5, seriesFriendly:true, worksWith:["Loyalty Betrayal","Family Empire","Hidden Heir"] },
+  { name:"The Next Generation", category:"Crime Family Saga", primaryGenre:"Crime Saga", heatLevel:2, conflictLevel:4, romanceLevel:3, dangerLevel:3, seriesFriendly:true, worksWith:["Family Empire","Legacy Under Threat","Succession War"] },
+
+  // ── WOMEN'S FICTION ──
+  { name:"Midlife Reinvention", category:"Women's Fiction", primaryGenre:"Women's Fiction", heatLevel:1, conflictLevel:3, romanceLevel:3, dangerLevel:1, seriesFriendly:false, worksWith:["Starting Over","Finding Herself","Empty Nest"] },
+  { name:"Starting Over", category:"Women's Fiction", primaryGenre:"Women's Fiction", heatLevel:1, conflictLevel:3, romanceLevel:3, dangerLevel:1, seriesFriendly:false, worksWith:["Midlife Reinvention","Divorce Recovery","Empty Nest"] },
+  { name:"Career Collapse", category:"Women's Fiction", primaryGenre:"Women's Fiction", heatLevel:1, conflictLevel:4, romanceLevel:2, dangerLevel:1, seriesFriendly:false, worksWith:["Starting Over","Finding Herself","Reinvention Journey"] },
+  { name:"Divorce Recovery", category:"Women's Fiction", primaryGenre:"Women's Fiction", heatLevel:1, conflictLevel:4, romanceLevel:3, dangerLevel:1, seriesFriendly:false, worksWith:["Starting Over","Midlife Reinvention","Learning Boundaries"] },
+  { name:"Empty Nest", category:"Women's Fiction", primaryGenre:"Women's Fiction", heatLevel:1, conflictLevel:3, romanceLevel:3, dangerLevel:1, seriesFriendly:false, worksWith:["Midlife Reinvention","Finding Herself","Starting Over"] },
+  { name:"Friendship Circle", category:"Women's Fiction", primaryGenre:"Women's Fiction", heatLevel:1, conflictLevel:2, romanceLevel:2, dangerLevel:1, seriesFriendly:true, worksWith:["Starting Over","Returning Home","Learning Boundaries"] },
+  { name:"Returning Home", category:"Women's Fiction", primaryGenre:"Women's Fiction", heatLevel:1, conflictLevel:3, romanceLevel:3, dangerLevel:1, seriesFriendly:true, worksWith:["Childhood Sweethearts","Family Reunion","Finding Herself"] },
+  { name:"Unexpected Inheritance", category:"Women's Fiction", primaryGenre:"Women's Fiction", heatLevel:1, conflictLevel:4, romanceLevel:2, dangerLevel:2, seriesFriendly:true, worksWith:["Returning Home","Family Secret","Starting Over"] },
+  { name:"Finding Herself", category:"Women's Fiction", primaryGenre:"Women's Fiction", heatLevel:1, conflictLevel:3, romanceLevel:3, dangerLevel:1, seriesFriendly:false, worksWith:["Midlife Reinvention","Career Collapse","Learning Boundaries"] },
+  { name:"Learning Boundaries", category:"Women's Fiction", primaryGenre:"Women's Fiction", heatLevel:1, conflictLevel:3, romanceLevel:3, dangerLevel:1, seriesFriendly:false, worksWith:["Finding Herself","Divorce Recovery","Friendship Circle"] },
+
+  // ── FAITH ROMANCE ──
+  { name:"Redemption Arc", category:"Faith Romance", primaryGenre:"Faith", heatLevel:1, conflictLevel:4, romanceLevel:4, dangerLevel:2, seriesFriendly:true, worksWith:["Prodigal Returns","Grace and Forgiveness","Second Chance Romance"] },
+  { name:"Prodigal Returns", category:"Faith Romance", primaryGenre:"Faith", heatLevel:1, conflictLevel:4, romanceLevel:4, dangerLevel:2, seriesFriendly:true, worksWith:["Redemption Arc","Grace and Forgiveness","Returning Home"] },
+  { name:"Waiting on God", category:"Faith Romance", primaryGenre:"Faith", heatLevel:1, conflictLevel:3, romanceLevel:4, dangerLevel:1, seriesFriendly:false, worksWith:["Faith Tested","Unexpected Calling","Kingdom Partnership"] },
+  { name:"Unexpected Calling", category:"Faith Romance", primaryGenre:"Faith", heatLevel:1, conflictLevel:3, romanceLevel:3, dangerLevel:2, seriesFriendly:true, worksWith:["Waiting on God","Kingdom Partnership","Community Impact"] },
+  { name:"Kingdom Partnership", category:"Faith Romance", primaryGenre:"Faith", heatLevel:1, conflictLevel:2, romanceLevel:4, dangerLevel:1, seriesFriendly:true, worksWith:["Ministry Partners","Unexpected Calling","Purpose Over Popularity"] },
+  { name:"Love After Loss", category:"Faith Romance", primaryGenre:"Faith", heatLevel:2, conflictLevel:4, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Grace and Forgiveness","Redemption Arc","Second Chance Romance"] },
+  { name:"Grace and Forgiveness", category:"Faith Romance", primaryGenre:"Faith", heatLevel:1, conflictLevel:4, romanceLevel:4, dangerLevel:1, seriesFriendly:false, worksWith:["Redemption Arc","Prodigal Returns","Love After Loss"] },
+  { name:"Faith Tested", category:"Faith Romance", primaryGenre:"Faith", heatLevel:1, conflictLevel:4, romanceLevel:3, dangerLevel:2, seriesFriendly:true, worksWith:["Waiting on God","Redemption Arc","Unexpected Calling"] },
+  { name:"Prayer Changes Everything", category:"Faith Romance", primaryGenre:"Faith", heatLevel:1, conflictLevel:3, romanceLevel:3, dangerLevel:1, seriesFriendly:false, worksWith:["Faith Tested","Waiting on God","Grace and Forgiveness"] },
+  { name:"Ministry Partners", category:"Faith Romance", primaryGenre:"Faith", heatLevel:1, conflictLevel:2, romanceLevel:4, dangerLevel:1, seriesFriendly:true, worksWith:["Kingdom Partnership","Unexpected Calling","Friends to Lovers"] },
+
+  // ── FAMILY DRAMA ──
+  { name:"Family Reunion", category:"Family Drama", primaryGenre:"Drama", heatLevel:1, conflictLevel:4, romanceLevel:2, dangerLevel:2, seriesFriendly:true, worksWith:["Family Secret","Returning Relative","Sibling Rivalry"] },
+  { name:"Generational Curse", category:"Family Drama", primaryGenre:"Drama", heatLevel:1, conflictLevel:5, romanceLevel:2, dangerLevel:3, seriesFriendly:true, worksWith:["Family Secret","Succession War","The Black Sheep"] },
+  { name:"Sibling Rivalry", category:"Family Drama", primaryGenre:"Drama", heatLevel:1, conflictLevel:4, romanceLevel:2, dangerLevel:3, seriesFriendly:true, worksWith:["Succession War","Family Betrayal","Inheritance Conflict"] },
+  { name:"Caregiver Burden", category:"Family Drama", primaryGenre:"Drama", heatLevel:1, conflictLevel:3, romanceLevel:2, dangerLevel:1, seriesFriendly:false, worksWith:["Empty Nest","Family Loyalty Test","Parent Child Estrangement"] },
+  { name:"Family Secret", category:"Family Drama", primaryGenre:"Drama", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:3, seriesFriendly:true, worksWith:["Generational Curse","Adoption Revelation","Family Reunion"] },
+  { name:"Parent Child Estrangement", category:"Family Drama", primaryGenre:"Drama", heatLevel:1, conflictLevel:4, romanceLevel:1, dangerLevel:2, seriesFriendly:true, worksWith:["Returning Relative","Grace and Forgiveness","Prodigal Returns"] },
+  { name:"Adoption Revelation", category:"Family Drama", primaryGenre:"Drama", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:3, seriesFriendly:true, worksWith:["Secret Bloodline","Family Secret","Hidden Heir"] },
+  { name:"Inheritance Conflict", category:"Family Drama", primaryGenre:"Drama", heatLevel:1, conflictLevel:4, romanceLevel:2, dangerLevel:3, seriesFriendly:true, worksWith:["Sibling Rivalry","Succession War","Family Betrayal"] },
+  { name:"Family Loyalty Test", category:"Family Drama", primaryGenre:"Drama", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:4, seriesFriendly:true, worksWith:["Loyalty Test","Protect the Family","Family Betrayal"] },
+  { name:"Returning Relative", category:"Family Drama", primaryGenre:"Drama", heatLevel:2, conflictLevel:4, romanceLevel:2, dangerLevel:3, seriesFriendly:true, worksWith:["Family Reunion","Parent Child Estrangement","Family Secret"] },
+
+  // ── MYSTERY ──
+  { name:"Cold Case", category:"Mystery", primaryGenre:"Mystery", heatLevel:1, conflictLevel:4, romanceLevel:2, dangerLevel:3, seriesFriendly:true, worksWith:["Hidden Witness","Family Coverup","Deadly Inheritance"] },
+  { name:"Missing Person", category:"Mystery", primaryGenre:"Mystery", heatLevel:1, conflictLevel:4, romanceLevel:2, dangerLevel:4, seriesFriendly:true, worksWith:["Hidden Witness","Countdown Clock","Wrong Suspect"] },
+  { name:"Hidden Witness", category:"Mystery", primaryGenre:"Mystery", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:5, seriesFriendly:true, worksWith:["Blackmail","Someone is Watching","The Witness"] },
+  { name:"Small Town Secrets", category:"Mystery", primaryGenre:"Mystery", heatLevel:1, conflictLevel:4, romanceLevel:3, dangerLevel:3, seriesFriendly:true, worksWith:["Family Coverup","Returning Home","Cold Case"] },
+  { name:"Murder in Plain Sight", category:"Mystery", primaryGenre:"Mystery", heatLevel:1, conflictLevel:5, romanceLevel:1, dangerLevel:4, seriesFriendly:true, worksWith:["Wrong Suspect","Family Coverup","Deadly Inheritance"] },
+  { name:"Wrong Suspect", category:"Mystery", primaryGenre:"Mystery", heatLevel:1, conflictLevel:5, romanceLevel:2, dangerLevel:4, seriesFriendly:true, worksWith:["Hidden Witness","Murder in Plain Sight","The Trap"] },
+  { name:"Secret Society", category:"Mystery", primaryGenre:"Mystery", heatLevel:2, conflictLevel:4, romanceLevel:2, dangerLevel:4, seriesFriendly:true, worksWith:["Conspiracy","Government Coverup","Hidden Agenda"] },
+  { name:"Family Coverup", category:"Mystery", primaryGenre:"Mystery", heatLevel:1, conflictLevel:5, romanceLevel:1, dangerLevel:4, seriesFriendly:true, worksWith:["Cold Case","Family Secret","Deadly Inheritance"] },
+  { name:"Deadly Inheritance", category:"Mystery", primaryGenre:"Mystery", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:4, seriesFriendly:true, worksWith:["Family Coverup","Hidden Heir","Unexpected Inheritance"] },
+  { name:"Hidden Diary", category:"Mystery", primaryGenre:"Mystery", heatLevel:1, conflictLevel:4, romanceLevel:2, dangerLevel:3, seriesFriendly:false, worksWith:["Cold Case","Family Secret","Small Town Secrets"] },
+
+  // ── SUSPENSE ──
+  { name:"Someone is Watching", category:"Suspense", primaryGenre:"Suspense", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:5, seriesFriendly:true, worksWith:["Blackmail","Hidden Enemy","The Trap"] },
+  { name:"Blackmail", category:"Suspense", primaryGenre:"Suspense", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:5, seriesFriendly:true, worksWith:["Hidden Enemy","Someone is Watching","The Setup"] },
+  { name:"Deadly Secret", category:"Suspense", primaryGenre:"Suspense", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:5, seriesFriendly:true, worksWith:["Hidden Enemy","Blackmail","The Witness"] },
+  { name:"Hidden Enemy", category:"Suspense", primaryGenre:"Suspense", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:5, seriesFriendly:true, worksWith:["The Mole","Blackmail","Deadly Secret"] },
+  { name:"The Witness", category:"Suspense", primaryGenre:"Suspense", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:5, seriesFriendly:true, worksWith:["Hidden Witness","Blackmail","The Trap"] },
+  { name:"Wrong Place Wrong Time", category:"Suspense", primaryGenre:"Suspense", heatLevel:1, conflictLevel:4, romanceLevel:2, dangerLevel:5, seriesFriendly:false, worksWith:["Anonymous Message","Countdown Clock","The Trap"] },
+  { name:"Anonymous Message", category:"Suspense", primaryGenre:"Suspense", heatLevel:1, conflictLevel:4, romanceLevel:1, dangerLevel:4, seriesFriendly:true, worksWith:["Someone is Watching","Blackmail","Hidden Enemy"] },
+  { name:"The Missing Night", category:"Suspense", primaryGenre:"Suspense", heatLevel:2, conflictLevel:5, romanceLevel:1, dangerLevel:4, seriesFriendly:false, worksWith:["Deadly Secret","Anonymous Message","Hidden Enemy"] },
+  { name:"The Trap", category:"Suspense", primaryGenre:"Suspense", heatLevel:2, conflictLevel:5, romanceLevel:1, dangerLevel:5, seriesFriendly:true, worksWith:["Countdown Clock","Wrong Suspect","Hidden Enemy"] },
+  { name:"Countdown Clock", category:"Suspense", primaryGenre:"Suspense", heatLevel:2, conflictLevel:5, romanceLevel:1, dangerLevel:5, seriesFriendly:false, worksWith:["The Trap","Missing Person","Wrong Place Wrong Time"] },
+
+  // ── THRILLER ──
+  { name:"Conspiracy", category:"Thriller", primaryGenre:"Thriller", heatLevel:1, conflictLevel:5, romanceLevel:1, dangerLevel:5, seriesFriendly:true, worksWith:["Government Coverup","The Mole","Whistleblower"] },
+  { name:"Government Coverup", category:"Thriller", primaryGenre:"Thriller", heatLevel:1, conflictLevel:5, romanceLevel:1, dangerLevel:5, seriesFriendly:true, worksWith:["Conspiracy","Election Scandal","Whistleblower"] },
+  { name:"Corporate Espionage", category:"Thriller", primaryGenre:"Thriller", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:4, seriesFriendly:true, worksWith:["Boardroom Coup","The Mole","Hidden Agenda"] },
+  { name:"The Mole", category:"Thriller", primaryGenre:"Thriller", heatLevel:1, conflictLevel:5, romanceLevel:1, dangerLevel:5, seriesFriendly:true, worksWith:["Conspiracy","Snitch in the Circle","Hidden Agenda"] },
+  { name:"Boardroom Coup", category:"Thriller", primaryGenre:"Thriller", heatLevel:1, conflictLevel:5, romanceLevel:2, dangerLevel:3, seriesFriendly:true, worksWith:["Corporate Espionage","Election Scandal","Leadership Crisis"] },
+  { name:"Election Scandal", category:"Thriller", primaryGenre:"Thriller", heatLevel:1, conflictLevel:5, romanceLevel:1, dangerLevel:4, seriesFriendly:true, worksWith:["Government Coverup","Whistleblower","Leaked Document"] },
+  { name:"Whistleblower", category:"Thriller", primaryGenre:"Thriller", heatLevel:1, conflictLevel:5, romanceLevel:2, dangerLevel:5, seriesFriendly:true, worksWith:["Conspiracy","Hidden Witness","Leaked Document"] },
+  { name:"Dangerous Truth", category:"Thriller", primaryGenre:"Thriller", heatLevel:2, conflictLevel:5, romanceLevel:1, dangerLevel:5, seriesFriendly:true, worksWith:["Whistleblower","The Mole","Conspiracy"] },
+  { name:"Leaked Document", category:"Thriller", primaryGenre:"Thriller", heatLevel:1, conflictLevel:5, romanceLevel:1, dangerLevel:4, seriesFriendly:true, worksWith:["Whistleblower","Election Scandal","Corporate Espionage"] },
+  { name:"Hidden Agenda", category:"Thriller", primaryGenre:"Thriller", heatLevel:1, conflictLevel:5, romanceLevel:1, dangerLevel:5, seriesFriendly:true, worksWith:["The Mole","Conspiracy","Boardroom Coup"] },
+
+  // ── POWER & PURPOSE ──
+  { name:"Reinvention Journey", category:"Power & Purpose", primaryGenre:"P&P", heatLevel:1, conflictLevel:3, romanceLevel:3, dangerLevel:1, seriesFriendly:false, worksWith:["Finding Herself","Midlife Reinvention","Career Collapse"] },
+  { name:"Woman in Leadership", category:"Power & Purpose", primaryGenre:"P&P", heatLevel:2, conflictLevel:4, romanceLevel:3, dangerLevel:2, seriesFriendly:true, worksWith:["Building an Empire","Legacy Builder","Enemies to Lovers"] },
+  { name:"Legacy Builder", category:"Power & Purpose", primaryGenre:"P&P", heatLevel:2, conflictLevel:4, romanceLevel:3, dangerLevel:2, seriesFriendly:true, worksWith:["Building an Empire","Power Couple","Woman in Leadership"] },
+  { name:"Community Impact", category:"Power & Purpose", primaryGenre:"P&P", heatLevel:1, conflictLevel:3, romanceLevel:3, dangerLevel:1, seriesFriendly:true, worksWith:["Unexpected Calling","Kingdom Partnership","Purpose Over Popularity"] },
+  { name:"Purpose Over Popularity", category:"Power & Purpose", primaryGenre:"P&P", heatLevel:1, conflictLevel:3, romanceLevel:3, dangerLevel:1, seriesFriendly:false, worksWith:["Calling vs Comfort","Finding Her Voice","Reinvention Journey"] },
+  { name:"Mentor Relationship", category:"Power & Purpose", primaryGenre:"P&P", heatLevel:2, conflictLevel:3, romanceLevel:3, dangerLevel:1, seriesFriendly:true, worksWith:["Woman in Leadership","Unexpected Calling","Purpose Over Popularity"] },
+  { name:"Leadership Crisis", category:"Power & Purpose", primaryGenre:"P&P", heatLevel:2, conflictLevel:5, romanceLevel:2, dangerLevel:2, seriesFriendly:true, worksWith:["Building an Empire","Legacy Under Threat","Boardroom Coup"] },
+  { name:"Finding Her Voice", category:"Power & Purpose", primaryGenre:"P&P", heatLevel:1, conflictLevel:3, romanceLevel:3, dangerLevel:1, seriesFriendly:false, worksWith:["Reinvention Journey","Purpose Over Popularity","Finding Herself"] },
+  { name:"Building an Empire", category:"Power & Purpose", primaryGenre:"P&P", heatLevel:2, conflictLevel:4, romanceLevel:3, dangerLevel:2, seriesFriendly:true, worksWith:["Legacy Builder","Power Couple","Woman in Leadership"] },
+  { name:"Calling vs Comfort", category:"Power & Purpose", primaryGenre:"P&P", heatLevel:1, conflictLevel:4, romanceLevel:3, dangerLevel:1, seriesFriendly:false, worksWith:["Purpose Over Popularity","Unexpected Calling","Reinvention Journey"] },
+
+  // ── LUXURY ROMANCE ──
+  { name:"Billionaire Romance", category:"Luxury Romance", primaryGenre:"Luxury", heatLevel:4, conflictLevel:4, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Boss & Employee","Enemies to Lovers","Power Couple Goals"] },
+  { name:"Celebrity Romance", category:"Luxury Romance", primaryGenre:"Luxury", heatLevel:4, conflictLevel:4, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Public Image Crisis","Secret Relationship","Power Couple Goals"] },
+  { name:"Athlete Romance", category:"Luxury Romance", primaryGenre:"Luxury", heatLevel:4, conflictLevel:3, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Billionaire Romance","Power Couple Goals","Forbidden Love"] },
+  { name:"Entertainment Mogul", category:"Luxury Romance", primaryGenre:"Luxury", heatLevel:3, conflictLevel:4, romanceLevel:4, dangerLevel:2, seriesFriendly:true, worksWith:["Billionaire Romance","Power Couple Goals","Legacy Builder"] },
+  { name:"Private Island Getaway", category:"Luxury Romance", primaryGenre:"Luxury", heatLevel:4, conflictLevel:3, romanceLevel:5, dangerLevel:2, seriesFriendly:false, worksWith:["Forced Proximity","Only One Bed","Billionaire Romance"] },
+  { name:"Public Image Crisis", category:"Luxury Romance", primaryGenre:"Luxury", heatLevel:3, conflictLevel:4, romanceLevel:4, dangerLevel:2, seriesFriendly:true, worksWith:["Celebrity Romance","Secret Relationship","High Society Scandal"] },
+  { name:"Luxury Lifestyle", category:"Luxury Romance", primaryGenre:"Luxury", heatLevel:3, conflictLevel:3, romanceLevel:4, dangerLevel:1, seriesFriendly:true, worksWith:["Billionaire Romance","Power Couple Goals","High Society Scandal"] },
+  { name:"High Society Scandal", category:"Luxury Romance", primaryGenre:"Luxury", heatLevel:3, conflictLevel:5, romanceLevel:4, dangerLevel:3, seriesFriendly:true, worksWith:["Public Image Crisis","Forbidden Love","Secret Relationship"] },
+  { name:"Power Couple Goals", category:"Luxury Romance", primaryGenre:"Luxury", heatLevel:4, conflictLevel:3, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Building an Empire","Power Couple","Billionaire Romance"] },
+  { name:"Secret Millionaire", category:"Luxury Romance", primaryGenre:"Luxury", heatLevel:3, conflictLevel:4, romanceLevel:5, dangerLevel:2, seriesFriendly:true, worksWith:["Enemies to Lovers","Fake Relationship","Billionaire Romance"] },
+
+  // ── SPECULATIVE / SUPERNATURAL ──
+  { name:"Hidden Powers", category:"Speculative", primaryGenre:"Speculative", heatLevel:2, conflictLevel:4, romanceLevel:3, dangerLevel:4, seriesFriendly:true, worksWith:["Chosen One","Family Gift","Supernatural Legacy"] },
+  { name:"Chosen One", category:"Speculative", primaryGenre:"Speculative", heatLevel:2, conflictLevel:5, romanceLevel:3, dangerLevel:4, seriesFriendly:true, worksWith:["Hidden Powers","Prophecy","Ancient Secret"] },
+  { name:"Family Gift", category:"Speculative", primaryGenre:"Speculative", heatLevel:2, conflictLevel:4, romanceLevel:3, dangerLevel:3, seriesFriendly:true, worksWith:["Hidden Powers","Supernatural Legacy","Generational Curse"] },
+  { name:"Parallel Reality", category:"Speculative", primaryGenre:"Speculative", heatLevel:2, conflictLevel:4, romanceLevel:4, dangerLevel:3, seriesFriendly:true, worksWith:["Time Slip","Otherworldly Love","Chosen One"] },
+  { name:"Prophecy", category:"Speculative", primaryGenre:"Speculative", heatLevel:2, conflictLevel:5, romanceLevel:3, dangerLevel:4, seriesFriendly:true, worksWith:["Chosen One","Ancient Secret","Hidden Powers"] },
+  { name:"Ancient Secret", category:"Speculative", primaryGenre:"Speculative", heatLevel:2, conflictLevel:5, romanceLevel:3, dangerLevel:4, seriesFriendly:true, worksWith:["Secret Society","Prophecy","Supernatural Legacy"] },
+  { name:"Supernatural Legacy", category:"Speculative", primaryGenre:"Speculative", heatLevel:2, conflictLevel:4, romanceLevel:3, dangerLevel:4, seriesFriendly:true, worksWith:["Family Gift","Ancient Secret","Generational Curse"] },
+  { name:"Time Slip", category:"Speculative", primaryGenre:"Speculative", heatLevel:2, conflictLevel:4, romanceLevel:4, dangerLevel:3, seriesFriendly:true, worksWith:["Parallel Reality","Second Chance Romance","Otherworldly Love"] },
+  { name:"Otherworldly Love", category:"Speculative", primaryGenre:"Speculative", heatLevel:3, conflictLevel:4, romanceLevel:5, dangerLevel:3, seriesFriendly:true, worksWith:["Forbidden Love","Time Slip","Parallel Reality"] },
+  { name:"The Fifth Frequency", category:"Speculative", primaryGenre:"Speculative", heatLevel:3, conflictLevel:5, romanceLevel:4, dangerLevel:5, seriesFriendly:true, worksWith:["Hidden Powers","Chosen One","Ancient Secret"] },
 ];
+
+const TROPE_CATEGORY_ORDER = [
+  "Romance Core", "Romance High Heat", "Urban Romance", "Street Lit",
+  "Crime Family Saga", "Women's Fiction", "Faith Romance", "Family Drama",
+  "Mystery", "Suspense", "Thriller", "Power & Purpose",
+  "Luxury Romance", "Speculative"
+];
+
+const TROPE_CATEGORY_COLORS = {
+  "Romance Core":     "#D88830",
+  "Romance High Heat":"#C83050",
+  "Urban Romance":    "#B8342D",
+  "Street Lit":       "#4A4A6A",
+  "Crime Family Saga":"#6A3A2A",
+  "Women's Fiction":  "#2D8B7A",
+  "Faith Romance":    "#C8A030",
+  "Family Drama":     "#8B6A2A",
+  "Mystery":          "#4888C8",
+  "Suspense":         "#7A3A8A",
+  "Thriller":         "#3A5A3A",
+  "Power & Purpose":  "#9F7AEA",
+  "Luxury Romance":   "#B8841C",
+  "Speculative":      "#3BB8A4",
+};
+
+const PRESET_TROPE_CATEGORIES = {
+  power_purpose_romance:           ["Romance Core","Power & Purpose"],
+  black_billionaire_romance:       ["Romance Core","Luxury Romance"],
+  soft_black_romance:              ["Romance Core","Romance High Heat"],
+  family_empire_romance:           ["Romance Core","Crime Family Saga","Family Drama"],
+  sexy_contemporary_black_romance: ["Romance Core","Romance High Heat"],
+  erotic_urban_romance:            ["Romance High Heat","Urban Romance"],
+  urban_drama_romance:             ["Urban Romance"],
+  street_lit:                      ["Street Lit","Urban Romance"],
+  crime_family_saga:               ["Crime Family Saga","Street Lit"],
+  kingpin_romance:                 ["Urban Romance","Street Lit","Crime Family Saga"],
+  romantic_suspense:               ["Romance Core","Suspense"],
+  black_mystery:                   ["Mystery","Family Drama"],
+  political_thriller:              ["Thriller"],
+  corporate_thriller:              ["Thriller","Suspense","Power & Purpose"],
+  faith_purpose_romance:           ["Faith Romance","Power & Purpose"],
+  faith_family_saga:               ["Faith Romance","Family Drama"],
+  womens_fiction:                  ["Women's Fiction","Family Drama"],
+  custom:                          TROPE_CATEGORY_ORDER,
+};
+
+function getTropesForPreset(presetId) {
+  const cats = PRESET_TROPE_CATEGORIES[presetId || "custom"] || TROPE_CATEGORY_ORDER;
+  const seen = new Set();
+  const result = [];
+  cats.forEach(cat => {
+    TROPES_DATABASE.filter(t => t.category === cat).forEach(t => {
+      if (!seen.has(t.name)) { seen.add(t.name); result.push(t); }
+    });
+  });
+  return result;
+}
+
+function getTropeByName(name) {
+  return TROPES_DATABASE.find(t => t.name === name) || null;
+}
 
 const HEAT = [
   { level:1, label:"Sweet",     emoji:"🌸", color:"#2D8B7A", desc:"Tension + emotional intimacy only" },
@@ -3040,6 +3264,29 @@ function Chip({ active, onClick, children, color }) {
   );
 }
 
+// Trope chip with category color, heat dots, and series indicator (Phase: trope DB)
+function TropeChip({ trope, active, onClick }) {
+  const color = TROPE_CATEGORY_COLORS[trope.category] || C.gold;
+  const dots = "●".repeat(trope.heatLevel) + "○".repeat(Math.max(0, 5 - trope.heatLevel));
+  return (
+    <button onClick={onClick}
+      style={{
+        position:"relative", padding:"6px 12px 6px 13px", borderRadius:8, textAlign:"left", lineHeight:1.15,
+        background: active ? color : "transparent",
+        color: active ? "#fff" : C.muted,
+        border: "1px solid " + (active ? color : C.borderLight),
+        borderLeft: "3px solid " + color,
+        fontSize:12, fontWeight:500, cursor:"pointer", fontFamily:"Nunito, sans-serif"
+      }}>
+      <span style={{ display:"flex", alignItems:"center", gap:5 }}>
+        <span>{trope.name}</span>
+        {trope.seriesFriendly && <span style={{ fontSize:10, opacity:0.85 }}>⊕</span>}
+      </span>
+      <span style={{ display:"block", fontSize:9, opacity:0.65, marginTop:1, letterSpacing:1 }}>{dots}</span>
+    </button>
+  );
+}
+
 function HeatBtn({ heat, active, onClick }) {
   return (
     <button onClick={onClick}
@@ -3103,42 +3350,52 @@ function ArchetypePicker({ label, archetypes, selected, onSelect, recommendation
   const [filter, setFilter] = useState("All");
   const cats = ["All", ...new Set(archetypes.map(a=>a.cat))];
   const filtered = filter==="All" ? archetypes : archetypes.filter(a=>a.cat===filter);
+  const accentC = accent || C.gold;
   return (
     <div style={{ marginBottom:18 }}>
-      <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:8 }}>
-        <div style={{ color:accent||C.gold, fontFamily:"Cormorant Garamond, serif", fontSize:18, fontWeight:600 }}>{label}</div>
-        <button onClick={()=>setOpen(!open)}
-          style={{ background:"transparent", border:"none", color:C.muted, fontSize:12, cursor:"pointer", textDecoration:"underline" }}>
-          {open ? "Close picker" : "Browse all"}
+      <div style={{ color:accentC, fontFamily:"Cormorant Garamond, serif", fontSize:18, fontWeight:600, marginBottom:8 }}>{label}</div>
+
+      {/* Collapsed pill */}
+      {!selected ? (
+        <button onClick={()=>setOpen(o=>!o)}
+          style={{ padding:"8px 16px", background:"transparent", border:"1px solid "+C.borderLight, color:C.muted,
+                   borderRadius:20, fontSize:13, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+          AI will choose  ↓
         </button>
-      </div>
-      <div style={{ padding:"10px 12px", background:C.card, border:"1px solid "+(selected?C.gold:C.border), borderRadius:8 }}>
-        <div style={{ color:selected?C.text:C.muted, fontSize:14, fontWeight:600 }}>
-          {selected ? selected.n : "AI will choose based on your blend"}
-        </div>
-        {selected && <div style={{ color:C.muted, fontSize:12, marginTop:3 }}>{selected.cat} · {selected.wound}</div>}
-        {selected && (
-          <button onClick={()=>onSelect(null)}
-            style={{ marginTop:6, background:"transparent", border:"none", color:C.muted, fontSize:11, cursor:"pointer", textDecoration:"underline" }}>
-            Clear (let AI choose)
-          </button>
-        )}
-      </div>
-      {recommendations && recommendations.length > 0 && !open && (
-        <div style={{ marginTop:10 }}>
-          <div style={{ color:C.muted, fontSize:11, marginBottom:6, letterSpacing:0.5, textTransform:"uppercase" }}>Recommended for your blend</div>
-          <div style={{ display:"grid", gap:6 }}>
-            {recommendations.map(a=>(
-              <ArchetypeRow key={a.id} arch={a} selected={selected && selected.id===a.id} onClick={()=>onSelect(a)}/>
-            ))}
+      ) : (
+        <div>
+          <div style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"7px 8px 7px 16px",
+                        background:C.glow, border:"1px solid "+C.gold, borderRadius:20 }}>
+            <button onClick={()=>setOpen(o=>!o)}
+              style={{ background:"transparent", border:"none", color:C.gold, fontSize:13, fontWeight:600,
+                       cursor:"pointer", fontFamily:"Nunito, sans-serif", padding:0 }}>
+              {selected.n}
+            </button>
+            <button onClick={()=>onSelect(null)}
+              style={{ background:"transparent", border:"none", color:C.gold, fontSize:15, cursor:"pointer", lineHeight:1, padding:"0 4px" }}>×</button>
+          </div>
+          <div style={{ color:C.muted, fontSize:11, marginTop:4 }}>
+            {(selected.cat + " · " + selected.wound).slice(0,55)}
           </div>
         </div>
       )}
+
+      {/* Open: recommendations + category tabs + browse-all list */}
       {open && (
         <div style={{ marginTop:12 }}>
+          {recommendations && recommendations.length > 0 && (
+            <div style={{ marginBottom:12 }}>
+              <div style={{ color:C.muted, fontSize:11, marginBottom:6, letterSpacing:0.5, textTransform:"uppercase" }}>Recommended for your blend</div>
+              <div style={{ display:"grid", gap:6 }}>
+                {recommendations.map(a=>(
+                  <ArchetypeRow key={a.id} arch={a} selected={selected && selected.id===a.id} onClick={()=>{onSelect(a); setOpen(false);}}/>
+                ))}
+              </div>
+            </div>
+          )}
           <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:10 }}>
             {cats.map(c=>(
-              <Chip key={c} active={filter===c} onClick={()=>setFilter(c)} color={accent}>{c}</Chip>
+              <Chip key={c} active={filter===c} onClick={()=>setFilter(c)} color={accentC}>{c}</Chip>
             ))}
           </div>
           <div style={{ maxHeight:360, overflowY:"auto", paddingRight:4 }}>
@@ -6888,6 +7145,7 @@ export default function App() {
 
   // ── Phase 1.5: genre preset quick-start ──
   const [selectedPreset, setSelectedPreset] = useState(null);
+  const [tropeFilter, setTropeFilter] = useState("All");  // trope category tab (custom mode)
   const handlePresetSelect = useCallback((preset) => {
     setSelectedPreset(preset.id);
     if (preset.id === "custom" || !preset.lanes) return;
@@ -7618,13 +7876,64 @@ export default function App() {
             Stack your hooks
           </div>
           <div style={{ color:C.muted, fontSize:12, marginBottom:14 }}>
-            Selected: {tropes.length}/4 recommended for marketing
+            Selected: {tropes.length} {tropes.length===1?"trope":"tropes"}
           </div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
-            {TROPES.map(t => (
-              <Chip key={t} active={tropes.includes(t)} onClick={()=>toggleTrope(t)}>{t}</Chip>
-            ))}
-          </div>
+          {(() => {
+            const availableTropes = getTropesForPreset(selectedPreset);
+            const presetMode = selectedPreset && selectedPreset !== "custom";
+            const preset = presetMode ? GENRE_PRESETS.find(p => p.id === selectedPreset) : null;
+            const shown = presetMode
+              ? availableTropes
+              : (tropeFilter === "All" ? availableTropes : availableTropes.filter(t => t.category === tropeFilter));
+            return (
+              <div>
+                {presetMode ? (
+                  <div style={{ color:C.muted, fontSize:12, marginBottom:10 }}>
+                    {preset.icon} {preset.label} · {availableTropes.length} tropes available
+                  </div>
+                ) : (
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
+                    <Chip active={tropeFilter==="All"} onClick={()=>setTropeFilter("All")} color={C.gold}>All</Chip>
+                    {TROPE_CATEGORY_ORDER.map(cat => (
+                      <Chip key={cat} active={tropeFilter===cat} onClick={()=>setTropeFilter(cat)} color={TROPE_CATEGORY_COLORS[cat]}>{cat}</Chip>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
+                  {shown.map(t => (
+                    <TropeChip key={t.name} trope={t} active={tropes.includes(t.name)} onClick={()=>toggleTrope(t.name)}/>
+                  ))}
+                </div>
+                {tropes.length > 0 && (() => {
+                  const selSet = new Set(tropes);
+                  const seen = new Set();
+                  const sugg = [];
+                  tropes.forEach(name => {
+                    const t = getTropeByName(name);
+                    (t && t.worksWith || []).forEach(w => {
+                      if (!selSet.has(w) && !seen.has(w) && getTropeByName(w)) { seen.add(w); sugg.push(w); }
+                    });
+                  });
+                  const top = sugg.slice(0,6);
+                  if (!top.length) return null;
+                  return (
+                    <div style={{ marginTop:14 }}>
+                      <div style={{ color:C.muted, fontSize:10, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Pairs Well With ·</div>
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                        {top.map(w => (
+                          <button key={w} onClick={()=>toggleTrope(w)}
+                            style={{ padding:"5px 11px", borderRadius:14, background:"transparent", color:C.gold,
+                                     border:"1px solid "+C.gold, fontSize:11, cursor:"pointer", fontFamily:"Nunito, sans-serif", opacity:0.85 }}>
+                            + {w}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            );
+          })()}
         </div>
 
         {/* HEAT */}
