@@ -18,7 +18,7 @@ const LANES = [
   { id:"community",   label:"Community Romance",           color:"#D88830", desc:"Friend groups, family gatherings, chosen community" },
   { id:"luxury",      label:"Luxury / Black Excellence",   color:"#D4A828", desc:"CEOs, power couples, ambition, aspirational world" },
   { id:"family",      label:"Family Saga",                 color:"#C05060", desc:"Generational conflict, legacy, family business drama" },
-  { id:"urban",       label:"Urban Heat",                  color:"#B8342D", desc:"Intensity, loyalty, protective heroes, high stakes" },
+  { id:"urban",       label:"Urban Drama",                 color:"#B8342D", desc:"Loyalty, betrayal, danger, power, secrets, consequences — high-stakes urban drama" },
   { id:"reinvention", label:"Reinvention Romance",         color:"#30A888", desc:"Midlife, career change, divorce, starting over" },
   { id:"suspense",    label:"Romantic Suspense",           color:"#4888C8", desc:"Danger, secrets, investigations alongside love" },
   { id:"faith",       label:"Faith & Purpose",             color:"#C8A030", desc:"Calling, spiritual growth, moral dilemmas" },
@@ -1069,6 +1069,36 @@ async function generateBlueprint(opts) {
     patternCtx += "\n\nBlend these patterns — do not pick only one. The percentages reflect the dominant market positioning. Honor the strongest pattern while incorporating elements of the others.";
   }
 
+  // ── Urban Drama calibration: when the Urban lane dominates the blend, force a
+  //    high-stakes urban-drama experience instead of soft contemporary romance ──
+  const urbanPct = norm.urban || 0;
+  const urbanDrama = urbanPct >= 50;
+  let urbanDramaCtx = "";
+  if (urbanPct >= 50) {
+    urbanDramaCtx = [
+      "",
+      "URBAN DRAMA CALIBRATION — DOMINANT (Urban lane at "+urbanPct+"%).",
+      "This is HIGH-DRAMA URBAN FICTION / URBAN ROMANCE DRAMA — NOT soft, gentle, or polished contemporary Black romance. Where this block conflicts with any softer guidance above, THIS BLOCK WINS.",
+      "TONE: raw, intense, high-stakes, emotionally volatile.",
+      "PACING: fast, dramatic, cliffhanger-driven — scenes end on a turn, threat, or reveal.",
+      "READER PROMISE: loyalty, betrayal, passion, danger, power, secrets, and consequences.",
+      "URBAN DRAMA ENGINE (targets, 1-5): loyalty 5 · power/status 5 · danger 4 · relationship volatility 5 · family-drama 5 · betrayal risk 5 · consequence 5 · morality 4 (morally gray — the leads make hard, compromising choices).",
+      "ROMANCE still drives the heart (attraction 5, emotional intimacy 3, physical 4, relationship focus 5) but DANGER, POWER, and BETRAYAL drive the plot. Passion runs hot and volatile, not gentle.",
+      "SUSPENSE layer: mystery 3 · danger 4 · psychological tension 4 · twist intensity 5.",
+      "MANDATORY: real pressure, betrayal risk, loyalty tests, morally gray decisions, and consequences. Include at least one secret capable of destroying a family, a relationship, or a business/empire.",
+      "BUILD THE EXTERNAL CONFLICT FROM A COMBINATION OF: betrayal by someone close · family secrets · street-to-legitimate business tension · hidden money · revenge · loyalty tests · dangerous exes · business fronts · family-empire pressure · violence-adjacent consequences · reputation damage · public humiliation · secret alliances · criminal history resurfacing.",
+      "CHARACTER BEHAVIOR: pride; guarded trust; emotional intensity; loyalty-first decision-making; protectiveness; suspicion; impulsive choices under pressure; public strength masking private vulnerability.",
+      "DO NOT: make a soft, low-stakes misunderstanding the central conflict; default to a gentle or overly polished corporate-romance tone — UNLESS the blend also carries Power & Purpose / Luxury, in which case FUSE boardroom power with street-level danger and stakes.",
+      "Category-level pattern calibration only — never imitate or name a specific author."
+    ].join("\n");
+  } else if (urbanPct >= 25) {
+    urbanDramaCtx = [
+      "",
+      "URBAN DRAMA ELEMENTS — SECONDARY (Urban lane at "+urbanPct+"%).",
+      "Push beyond soft romance: weave in betrayal risk, loyalty tests, a destructive secret, power dynamics, and real consequences. Sharpen the pacing and end scenes on turns; keep it emotionally volatile while letting the other lanes share the stage."
+    ].join("\n");
+  }
+
   // ── External conflict: explicit or bestseller-steered ──
   let conflictCtx;
   if (externalConflict) {
@@ -1113,6 +1143,7 @@ async function generateBlueprint(opts) {
     intensityProfileCtx,
     universeCtx,
     patternCtx,
+    urbanDramaCtx,
     "",
     "Return a compact JSON object. KEEP EVERY VALUE SHORT — no long descriptions.",
     "Use these exact keys with these length limits:",
@@ -1149,6 +1180,7 @@ async function generateBlueprint(opts) {
     intensityProfileCtx,
     universeCtx,
     patternCtx,
+    urbanDramaCtx,
     "",
     "Return a compact JSON object. KEEP EVERY VALUE SHORT — no long descriptions.",
     "Use these exact keys with these length limits:",
@@ -1176,7 +1208,9 @@ async function generateBlueprint(opts) {
   ].filter(Boolean).join("\n");
 
   const struct = await apiCallJSON(SYS_STORY, call2, 3500);
-  return Object.assign({}, core, struct);
+  const result = Object.assign({}, core, struct);
+  if (urbanDrama) result.urbanDrama = true;
+  return result;
 }
 
 async function generateChapterOutline(story, opts) {
@@ -1191,6 +1225,8 @@ async function generateChapterOutline(story, opts) {
     "Heroine: "+story.heroine.name+" — wound: "+story.heroine.wound,
     "Hero: "+story.hero.name+" — wound: "+story.hero.wound,
     "Relationship arc: "+(story.relationshipArc||[]).join(" → "),
+    ...(story.urbanDrama ? ["",
+      "URBAN DRAMA MODE: This is high-drama urban fiction / urban romance drama. Every chapter must carry real stakes — betrayal risk, loyalty tests, danger, power moves, secrets, or consequences — and end on a hard cliffhanger or turn. Keep pacing fast and tension high; no soft, low-stakes filler chapters. Passion is volatile; danger, power, and betrayal drive the plot."] : []),
     "",
     "MANUSCRIPT SPEC:",
     "Target manuscript length: "+targetWordCount.toLocaleString()+" words",
