@@ -15,7 +15,6 @@ import PlotThreadTracker from "./components/PlotThreadTracker";
 
 // ── Lazy-loaded workspace sections (code-split into separate chunks) ──
 const EditorModeDashboardLazy = lazy(() => import("./components/EditorModeDashboard"));
-const PublishingPanelLazy     = lazy(() => import("./components/PublishingPanel"));
 const ImportStoryLazy         = lazy(() => import("./components/ImportStory"));
 
 // ── Suspense fallback shown while a lazy workspace chunk loads ──
@@ -70,14 +69,14 @@ const FAST_DRAFT_MODELS = [
   {
     id: "claude-sonnet-4-6",
     label: "Sonnet 4.6",
-    badge: "Faster",
-    note: "~35-45s · Great quality"
+    badge: "Faster · Cheaper",
+    note: "~35s per batch"
   },
   {
     id: "claude-opus-4-8",
     label: "Opus 4.8",
-    badge: "Best Quality",
-    note: "~60-90s · Best prose"
+    badge: "Recommended",
+    note: "~60-90s · Best quality"
   },
 ];
 
@@ -1330,8 +1329,6 @@ const NAV_SECTIONS = [
   ]},
   { group: "intelligence", label: "Intelligence", items: [
     { id: "readerIntelligence", label: "Reader Intelligence", icon: "📈", requiresStory: true },
-    { id: "publishingStudio", label: "Publishing Studio", icon: "🚀", requiresStory: true },
-    { id: "marketIntelligence", label: "Market Intelligence", icon: "📊" }
   ]},
   { group: "system", items: [
     { id: "settings", label: "Settings", icon: "⚙️" }
@@ -2532,7 +2529,7 @@ function ChapterBuilder({ story, universe, chapterState, saveStatus, forceSave, 
   const [bibleViewerOpen, setBibleViewerOpen] = useState(false);  // Phase 1.5: View toggle
   const [fastDraftMode, setFastDraftMode] = useState(false);      // Phase 1.5: Fast Draft
   const [fastDraftBatchSize, setFastDraftBatchSize] = useState(2);
-  const [fastDraftModel, setFastDraftModel] = useState("claude-sonnet-4-6");
+  const [fastDraftModel, setFastDraftModel] = useState("claude-opus-4-8");
   const [writingBatch, setWritingBatch] = useState(null);          // { ch, scenes:[nums] }
   const [loadingOutline, setLoadingOutline] = useState(false);
   const [buildingBible, setBuildingBible] = useState(false);
@@ -2542,7 +2539,6 @@ function ChapterBuilder({ story, universe, chapterState, saveStatus, forceSave, 
   const [summarizingCh, setSummarizingCh] = useState(null);
   const [editingCh, setEditingCh] = useState(null);
   const [viewingVersionsCh, setViewingVersionsCh] = useState(null); // version history panel toggle
-  const [recheckCh, setRecheckCh] = useState(null);                 // chapter being auto re-checked
 
   // ── Scene Engine UI state (persistent scene data lives in App via chapterState) ──
   const [generatingScenesCh, setGeneratingScenesCh] = useState(null);
@@ -2706,23 +2702,7 @@ function ChapterBuilder({ story, universe, chapterState, saveStatus, forceSave, 
     const updatedProse = (chapterProse[n] || "") + note;
     setChapterProse(prev => ({...prev, [n]: updatedProse}));
     setChapterReports(prev => ({...prev, [n]: {...prev[n], resolved:true, _patchApplied:true }}));
-
-    // Auto re-check if bible is available
-    if (!bible || !outline) return;
-    setCheckingCh(n); setRecheckCh(n);
-    try {
-      const report = await generateContinuityReport(
-        story, bible, n, updatedProse, outline
-      );
-      setChapterReports(prev => ({...prev, [n]: report}));
-      const updated = mergeBibleUpdates(bible, report, n);
-      setBible(updated);
-    } catch(e) {
-      setErr("Auto continuity re-check failed: " + e.message);
-    } finally {
-      setCheckingCh(null); setRecheckCh(null);
-    }
-  }, [chapterReports, chapterProse, story, bible, outline, saveChapterVersion]);
+  }, [chapterReports, chapterProse, saveChapterVersion]);
 
   const acknowledgePatch = useCallback((n) => {
     setChapterReports(prev => ({...prev, [n]: {...prev[n], resolved:true}}));
@@ -2842,16 +2822,7 @@ function ChapterBuilder({ story, universe, chapterState, saveStatus, forceSave, 
     // Assemble and store as chapter prose
     const assembled = scenes.map(s => proseMap[s.sceneNumber]).join("\n\n");
     setChapterProse(prev => ({...prev, [chapterNum]: assembled}));
-    // Run continuity check on assembled prose (auto re-check when re-completing)
-    setCheckingCh(chapterNum); if (isRecomplete) setRecheckCh(chapterNum); setErr("");
-    try {
-      const report = await generateContinuityReport(story, bible, chapterNum, assembled, outline);
-      setChapterReports(prev => ({...prev, [chapterNum]: report}));
-      const updated = mergeBibleUpdates(bible, report, chapterNum);
-      setBible(updated);
-    } catch(e) { setErr(e.message); }
-    finally { setCheckingCh(null); setRecheckCh(null); }
-  }, [story, outline, bible, chapterSceneCards, sceneProse, chapterProse, saveChapterVersion]);
+  }, [chapterSceneCards, sceneProse, chapterProse, saveChapterVersion]);
 
     const exportChapter = useCallback((n) => {
     const ch = outline.chapters[n-1];
@@ -3292,7 +3263,7 @@ function ChapterBuilder({ story, universe, chapterState, saveStatus, forceSave, 
                   </div>
                 )}
 
-                {/* ── Version History + auto re-check indicator (live scene flow) ── */}
+                {/* ── Version History ── */}
                 {(chapterProse[ch.number] || (chapterVersions[ch.number]||[]).length > 0) && (
                   <div style={{ marginTop:10 }}>
                     <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
@@ -3303,11 +3274,6 @@ function ChapterBuilder({ story, universe, chapterState, saveStatus, forceSave, 
                                  borderRadius:5, fontSize:10, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
                         🕐 History{(chapterVersions[ch.number]||[]).length > 0 ? " (" + (chapterVersions[ch.number]||[]).length + ")" : ""}
                       </button>
-                      {recheckCh === ch.number && (
-                        <span style={{ color:C.amber, fontSize:11, fontStyle:"italic" }}>
-                          ↻ Auto re-checking continuity...
-                        </span>
-                      )}
                     </div>
                     {viewingVersionsCh === ch.number && (
                       <ChapterVersionHistory
@@ -3543,42 +3509,6 @@ function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activ
         </div>
       )}
 
-      {story.primaryReader && (
-        <div style={{ marginTop:20, padding:"20px 22px", background:C.surface, border:"1px solid "+C.border, borderRadius:12 }}>
-          <div style={{ color:C.gold, fontSize:11, letterSpacing:2, textTransform:"uppercase", fontWeight:700, marginBottom:12 }}>
-            Reader Archetypes
-          </div>
-          <div style={{ color:C.text, fontSize:13, marginBottom:6 }}>
-            <span style={{ color:C.amber, fontWeight:700 }}>Primary:</span> {story.primaryReader.archetypeName} — {story.primaryReader.requiredPayoff}
-          </div>
-          {story.secondaryReader && (
-            <div style={{ color:C.text, fontSize:13, marginBottom:6 }}>
-              <span style={{ color:C.amber, fontWeight:700 }}>Secondary:</span> {story.secondaryReader.archetypeName} — {story.secondaryReader.requiredPayoff}
-            </div>
-          )}
-          {story.readerSatisfactionForecast != null && (
-            <div style={{ color:C.gold, fontFamily:"Cormorant Garamond, serif", fontSize:18, fontWeight:700, margin:"8px 0 12px" }}>
-              {story.readerSatisfactionForecast}% satisfaction forecast
-            </div>
-          )}
-          {story.potentialRisks && story.potentialRisks.length > 0 && (
-            <div style={{ marginBottom:10 }}>
-              <div style={{ color:"#B07A1F", fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:5 }}>Potential Risks</div>
-              {story.potentialRisks.map((r,i)=>(
-                <div key={i} style={{ padding:"4px 10px", background:C.warningBg, border:"1px solid #B07A1F", borderRadius:5, color:C.warningText, fontSize:11, marginBottom:4 }}>⚠ {r}</div>
-              ))}
-            </div>
-          )}
-          {story.readerExpectations && story.readerExpectations.length > 0 && (
-            <div>
-              <div style={{ color:C.gold, fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:5 }}>Every Chapter Must Deliver</div>
-              {story.readerExpectations.map((e,i)=>(
-                <div key={i} style={{ color:C.text, fontSize:11, marginBottom:3 }}>✓ {e}</div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {story.relationshipArc && story.relationshipArc.length > 0 && (
         <div style={{ marginTop:20, padding:"22px 24px", background:C.surface, border:"1px solid "+C.border, borderRadius:12 }}>
@@ -4547,7 +4477,7 @@ export default function App() {
   // Section → view routing helper
   const goToSection = (id) => {
     setActiveSection(id);
-    if (id === "newStory" || id === "myStories" || id === "storyBible" || id === "characterStudio" || id === "sceneStudio" || id === "draftManuscript" || id === "editorMode" || id === "publishingStudio" || id === "readerIntelligence") {
+    if (id === "newStory" || id === "myStories" || id === "storyBible" || id === "characterStudio" || id === "sceneStudio" || id === "draftManuscript" || id === "editorMode" || id === "readerIntelligence") {
       setView("story");
     } else if (id === "worldBuilder") {
       setView("universes");
@@ -4923,24 +4853,6 @@ export default function App() {
 
         {view === "story" && (
           <>
-            {/* PUBLISHING STUDIO routing */}
-            {activeSection === "publishingStudio" && story && (
-              <Suspense fallback={<GlassLoadingFallback label="Loading Publishing Studio..." />}>
-                <PublishingPanelLazy
-                  story={story}
-                  outline={null}
-                  bible={null}
-                  packageData={bookPackage}
-                  generating={generatingPackage}
-                  progress={packageProgress}
-                  onGenerate={()=>generatePublishingPackage(null, null)}
-                  onExport={exportPublishingPackage}
-                  error={packageErr}/>
-              </Suspense>
-            )}
-            {activeSection === "publishingStudio" && !story && (
-              <NeedsStoryEmpty section="Publishing Studio" onGoToBuilder={()=>goToSection("newStory")}/>
-            )}
 
             {/* Placeholder sections */}
             {activeSection === "dashboard" && (
@@ -4959,38 +4871,6 @@ export default function App() {
                   features={["Predicted reader emotional journey", "Audience segment analysis", "Comp shelf positioning", "Reader review prediction", "Emotional payoff scoring per chapter"]}/>
               ) : (
                 <NeedsStoryEmpty section="Reader Intelligence" onGoToBuilder={()=>goToSection("newStory")}/>
-              )
-            )}
-            {activeSection === "marketIntelligence" && (
-              story ? (
-                <div>
-                  <div style={{ color:C.gold, fontSize:11, letterSpacing:2, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>Intelligence</div>
-                  <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:30, fontWeight:700, marginBottom:18 }}>Market Intelligence</div>
-                  <MarketDashboard story={story}/>
-                  <ActivatedPatternsCard patterns={activatedPatterns}/>
-                  <div style={{ padding:"18px 22px", background:C.surface, border:"1px solid "+C.border, borderRadius:14, marginTop:18, marginBottom:18 }}>
-                    <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:12 }}>Publishing Details</div>
-                    {story.marketingAngle && <InfoBlock label="Marketing Angle">{story.marketingAngle}</InfoBlock>}
-                    {story.amazonCategories && <InfoBlock label="Amazon Categories">{Array.isArray(story.amazonCategories)?story.amazonCategories.join(" · "):story.amazonCategories}</InfoBlock>}
-                    {story.readerProfile && <InfoBlock label="Reader Profile">{story.readerProfile}</InfoBlock>}
-                    {story.seriesPotential && <InfoBlock label="Series Potential">{story.seriesPotential}</InfoBlock>}
-                    {story.wordCountTarget && <InfoBlock label="Word Count Target">{story.wordCountTarget}</InfoBlock>}
-                  </div>
-                  <Suspense fallback={<GlassLoadingFallback label="Loading Publishing Studio..." />}>
-                    <PublishingPanelLazy
-                      story={story}
-                      outline={null}
-                      bible={null}
-                      packageData={bookPackage}
-                      generating={generatingPackage}
-                      progress={packageProgress}
-                      onGenerate={()=>generatePublishingPackage(null, null)}
-                      onExport={exportPublishingPackage}
-                      error={packageErr}/>
-                  </Suspense>
-                </div>
-              ) : (
-                <NeedsStoryEmpty section="Market Intelligence" onGoToBuilder={()=>goToSection("newStory")}/>
               )
             )}
             {activeSection === "settings" && (
@@ -5050,7 +4930,7 @@ export default function App() {
             )}
 
             {/* Default story-builder view — activeSection in {newStory, storyBible, characterStudio, sceneStudio, draftManuscript} all render the full builder */}
-            {!["publishingStudio","dashboard","readerIntelligence","marketIntelligence","settings","myStories","editorMode"].includes(activeSection) && (
+            {!["dashboard","readerIntelligence","settings","myStories","editorMode"].includes(activeSection) && (
               <>
             {activeUniverse && (
               <div style={{ padding:"14px 20px", background:C.glow, border:"1px solid "+C.gold,
@@ -5280,19 +5160,6 @@ export default function App() {
             onApplyCategory={spCat ? (()=>applySuspense(spCat.catId, spCat.baseline)) : null}/>
         </div>
 
-        {/* PATTERN PREVIEW (live) */}
-        {activatedPatterns.length > 0 && (
-          <ActivatedPatternsCard
-            patterns={activatedPatterns}
-            calibration={calibrationForActivatedPatterns(activatedPatterns)}
-            currentSpice={spiceLevel}
-            currentIntensity={romanceIntensity}
-            onApplyCalibration={(cal)=>{
-              if (!cal) return;
-              setSpiceLevel(cal.spice);
-              setRomanceIntensity(cal.intensity);
-            }}/>
-        )}
 
         {/* GENERATE */}
         <div style={{ textAlign:"center", marginBottom:22 }}>
