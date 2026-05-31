@@ -3508,7 +3508,7 @@ function freshStoryRecord(id) {
     relationshipObstacle:null, familyInfluence:7, spiceLevel:2, romanceIntensity:DEFAULT_INTENSITY,
     eroticRomance:{...DEFAULT_EROTIC}, streetLitEng:{...DEFAULT_STREETLIT}, suspenseEng:{...DEFAULT_SUSPENSE},
     blueprint:null, outline:null, bible:null, bibleLocked:false, storyDNALocked:false, chapterProse:{}, chapterReports:{},
-    chapterSummaries:{}, chapterSceneCards:{}, sceneProse:{}, sceneSummaries:{}, sceneLocked:{}, bookPackage:null
+    chapterSummaries:{}, chapterVersions:{}, chapterSceneCards:{}, sceneProse:{}, sceneSummaries:{}, sceneLocked:{}, bookPackage:null
   };
 }
 
@@ -5492,6 +5492,84 @@ function SceneCard({ scene, chapterNum, prose, summary, locked, editing, status,
   );
 }
 
+// ── Chapter Version History (auto-captured before destructive edits) ──
+function ChapterVersionHistory({ chapterNum, versions, onRestore, onClose }) {
+  const sorted = [...(versions || [])].reverse(); // newest first
+
+  if (!sorted.length) return (
+    <div style={{ padding:"16px 18px", background:C.card,
+                  border:"1px solid "+C.borderLight, borderRadius:8,
+                  marginTop:8 }}>
+      <div style={{ color:C.muted, fontSize:12, fontStyle:"italic" }}>
+        No versions saved yet. Versions are captured automatically
+        before any regeneration or edit.
+      </div>
+      <button onClick={onClose} style={{ marginTop:10, background:"transparent",
+        border:"none", color:C.muted, fontSize:11, cursor:"pointer",
+        textDecoration:"underline" }}>Close</button>
+    </div>
+  );
+
+  return (
+    <div style={{ padding:"16px 18px", background:C.card,
+                  border:"1px solid "+C.border, borderRadius:8, marginTop:8 }}>
+      <div style={{ display:"flex", justifyContent:"space-between",
+                    alignItems:"baseline", marginBottom:12 }}>
+        <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5,
+                      textTransform:"uppercase", fontWeight:700 }}>
+          🕐 Chapter {chapterNum} · Version History
+        </div>
+        <button onClick={onClose}
+          style={{ background:"transparent", border:"none",
+                   color:C.muted, fontSize:11, cursor:"pointer",
+                   textDecoration:"underline" }}>
+          Close
+        </button>
+      </div>
+      <div style={{ display:"grid", gap:8 }}>
+        {sorted.map((v, i) => (
+          <div key={v.id} style={{ padding:"10px 14px", background:C.bg,
+                                    border:"1px solid "+C.borderLight,
+                                    borderRadius:6 }}>
+            <div style={{ display:"flex", justifyContent:"space-between",
+                          alignItems:"baseline", marginBottom:4,
+                          flexWrap:"wrap", gap:6 }}>
+              <div>
+                <span style={{ color:C.gold, fontWeight:700,
+                               fontSize:13 }}>{v.label}</span>
+                {i === 0 && (
+                  <span style={{ marginLeft:8, padding:"1px 7px",
+                                 background:"rgba(45,139,122,0.12)",
+                                 border:"1px solid #2D8B7A",
+                                 borderRadius:8, fontSize:9,
+                                 color:"#2D8B7A", fontWeight:700 }}>
+                    LATEST
+                  </span>
+                )}
+              </div>
+              <span style={{ color:C.muted, fontSize:10 }}>
+                {new Date(v.savedAt).toLocaleString()}
+              </span>
+            </div>
+            <div style={{ color:C.muted, fontSize:11, marginBottom:8,
+                          fontFamily:"Cormorant Garamond, serif",
+                          fontStyle:"italic", lineHeight:1.5 }}>
+              "{v.prose.trim().slice(0, 120)}..."
+            </div>
+            <button onClick={() => onRestore(v)}
+              style={{ padding:"4px 12px", background:"transparent",
+                       color:C.gold, border:"1px solid "+C.gold,
+                       borderRadius:5, fontSize:11, fontWeight:600,
+                       cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+              Restore this version
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ChapterCard({ ch, prose, report, summary, editing, onWrite, onContinue, onRegen, onEdit, onSaveEdit, onCancelEdit,
                        onCheck, onSummarize, onExport, onHandoff,
                        onApplyPatch, onAcknowledgePatch, onMarkResolved,
@@ -6182,6 +6260,7 @@ function ChapterBuilder({ story, universe, chapterState }) {
     outline, setOutline, bible, setBible, bibleLocked, setBibleLocked,
     chapterProse, setChapterProse, chapterReports, setChapterReports,
     chapterSummaries, setChapterSummaries,
+    chapterVersions, setChapterVersions,
     chapterSceneCards, setChapterSceneCards, sceneProse, setSceneProse,
     sceneSummaries, setSceneSummaries, sceneLocked, setSceneLocked
   } = chapterState;
@@ -6197,6 +6276,8 @@ function ChapterBuilder({ story, universe, chapterState }) {
   const [checkingCh, setCheckingCh] = useState(null);
   const [summarizingCh, setSummarizingCh] = useState(null);
   const [editingCh, setEditingCh] = useState(null);
+  const [viewingVersionsCh, setViewingVersionsCh] = useState(null); // version history panel toggle
+  const [recheckCh, setRecheckCh] = useState(null);                 // chapter being auto re-checked
 
   // ── Scene Engine UI state (persistent scene data lives in App via chapterState) ──
   const [generatingScenesCh, setGeneratingScenesCh] = useState(null);
@@ -6288,8 +6369,41 @@ function ChapterBuilder({ story, universe, chapterState }) {
     finally { setWritingCh(null); }
   }, [story, outline, universe, bible, maxWordsPerGen, avgWordsPerChapter]);
 
+  // ── Version History: capture current prose before a destructive change ──
+  const saveChapterVersion = useCallback((n) => {
+    const current = chapterProse[n];
+    if (!current || !current.trim()) return;
+    const wc = current.trim().split(/\s+/).filter(Boolean).length;
+    setChapterVersions(prev => {
+      const existing = prev[n] || [];
+      // Don't save duplicate of most recent version
+      if (existing.length > 0 && existing[existing.length-1].prose === current)
+        return prev;
+      const version = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2,5),
+        prose: current,
+        wordCount: wc,
+        savedAt: Date.now(),
+        label: "v" + (existing.length + 1) + " · " + wc.toLocaleString() + " words",
+      };
+      return { ...prev, [n]: [...existing.slice(-4), version] };
+    });
+  }, [chapterProse, setChapterVersions]);
+
+  const restoreChapterVersion = useCallback((n, version) => {
+    if (!window.confirm(
+      "Restore this version? Your current prose will be saved as a new version first."
+    )) return;
+    saveChapterVersion(n);  // save current state before restoring
+    setChapterProse(prev => ({...prev, [n]: version.prose}));
+    setChapterReports(prev => { const c={...prev}; delete c[n]; return c; });
+    setChapterSummaries(prev => { const c={...prev}; delete c[n]; return c; });
+    setViewingVersionsCh(null);
+  }, [saveChapterVersion, setChapterProse, setChapterReports, setChapterSummaries]);
+
   const continueChapterHandler = useCallback(async (n) => {
     if (!chapterProse[n]) return;
+    saveChapterVersion(n);  // capture pre-continue state
     setContinuingCh(n); setErr("");
     try {
       const ch = outline.chapters[n-1];
@@ -6309,22 +6423,24 @@ function ChapterBuilder({ story, universe, chapterState }) {
   }, [story, outline, universe, bible, chapterProse, maxWordsPerGen, avgWordsPerChapter]);
 
   const regenerateChapter = useCallback(async (n) => {
-    if (!window.confirm("Regenerate Chapter "+n+"? Current prose will be replaced.")) return;
+    if (!window.confirm("Regenerate Chapter "+n+"? Your current prose will be saved to History first.")) return;
+    saveChapterVersion(n);  // save current prose before clearing
     // Clear current state for this chapter then run write
     setChapterProse(prev => { const c={...prev}; delete c[n]; return c; });
     setChapterReports(prev => { const c={...prev}; delete c[n]; return c; });
     setChapterSummaries(prev => { const c={...prev}; delete c[n]; return c; });
     // Use setTimeout to let state clear before re-write
     setTimeout(()=>writeChapter(n), 50);
-  }, [writeChapter]);
+  }, [writeChapter, saveChapterVersion]);
 
   const saveEdit = useCallback((n, newText) => {
+    saveChapterVersion(n);  // capture pre-edit prose
     setChapterProse(prev => ({...prev, [n]:newText}));
     // Edits invalidate continuity check
     setChapterReports(prev => { const c={...prev}; delete c[n]; return c; });
     setChapterSummaries(prev => { const c={...prev}; delete c[n]; return c; });
     setEditingCh(null);
-  }, []);
+  }, [saveChapterVersion]);
 
   const runContinuityCheck = useCallback(async (n) => {
     if (!bible || !chapterProse[n]) return;
@@ -6357,6 +6473,36 @@ function ChapterBuilder({ story, universe, chapterState }) {
     setChapterProse(prev => ({...prev, [n]: (prev[n]||"") + note}));
     setChapterReports(prev => ({...prev, [n]: {...prev[n], resolved:true}}));
   }, [chapterReports]);
+
+  // Apply the editor patch, then AUTO RE-CHECK continuity to verify the fix.
+  const applyPatchAndCheck = useCallback(async (n) => {
+    const r = chapterReports[n];
+    if (!r || !r.revisionPatch || !r.revisionPatch.revisedText) return;
+
+    // Save version before modifying
+    saveChapterVersion(n);
+
+    const note = "\n\n[EDITOR PATCH APPLIED]: " + r.revisionPatch.revisedText;
+    const updatedProse = (chapterProse[n] || "") + note;
+    setChapterProse(prev => ({...prev, [n]: updatedProse}));
+    setChapterReports(prev => ({...prev, [n]: {...prev[n], resolved:true, _patchApplied:true }}));
+
+    // Auto re-check if bible is available
+    if (!bible || !outline) return;
+    setCheckingCh(n); setRecheckCh(n);
+    try {
+      const report = await generateContinuityReport(
+        story, bible, n, updatedProse, outline
+      );
+      setChapterReports(prev => ({...prev, [n]: report}));
+      const updated = mergeBibleUpdates(bible, report, n);
+      setBible(updated);
+    } catch(e) {
+      setErr("Auto continuity re-check failed: " + e.message);
+    } finally {
+      setCheckingCh(null); setRecheckCh(null);
+    }
+  }, [chapterReports, chapterProse, story, bible, outline, saveChapterVersion]);
 
   const acknowledgePatch = useCallback((n) => {
     setChapterReports(prev => ({...prev, [n]: {...prev[n], resolved:true}}));
@@ -6470,19 +6616,22 @@ function ChapterBuilder({ story, universe, chapterState }) {
       setErr("Cannot complete chapter — some scenes are not written yet.");
       return;
     }
+    // If re-completing (prose already exists), capture the prior assembly to History first
+    const isRecomplete = !!(chapterProse[chapterNum] && chapterProse[chapterNum].trim());
+    if (isRecomplete) saveChapterVersion(chapterNum);
     // Assemble and store as chapter prose
     const assembled = scenes.map(s => proseMap[s.sceneNumber]).join("\n\n");
     setChapterProse(prev => ({...prev, [chapterNum]: assembled}));
-    // Run continuity check on assembled prose
-    setCheckingCh(chapterNum); setErr("");
+    // Run continuity check on assembled prose (auto re-check when re-completing)
+    setCheckingCh(chapterNum); if (isRecomplete) setRecheckCh(chapterNum); setErr("");
     try {
       const report = await generateContinuityReport(story, bible, chapterNum, assembled, outline);
       setChapterReports(prev => ({...prev, [chapterNum]: report}));
       const updated = mergeBibleUpdates(bible, report, chapterNum);
       setBible(updated);
     } catch(e) { setErr(e.message); }
-    finally { setCheckingCh(null); }
-  }, [story, outline, bible, chapterSceneCards, sceneProse]);
+    finally { setCheckingCh(null); setRecheckCh(null); }
+  }, [story, outline, bible, chapterSceneCards, sceneProse, chapterProse, saveChapterVersion]);
 
     const exportChapter = useCallback((n) => {
     const ch = outline.chapters[n-1];
@@ -6821,10 +6970,12 @@ function ChapterBuilder({ story, universe, chapterState }) {
                         {chapterReports[ch.number] && (
                           <div style={{ marginTop:12 }}>
                             <ContinuityReportCard report={chapterReports[ch.number]}
-                              onApplyPatch={()=>applyPatch(ch.number)}
+                              onApplyPatch={()=>applyPatchAndCheck(ch.number)}
                               onAcknowledgePatch={()=>acknowledgePatch(ch.number)}
                               onMarkResolved={()=>markResolved(ch.number)}
                               onRegenerate={()=>{
+                                // Save the current assembled prose to History before rebuilding
+                                saveChapterVersion(ch.number);
                                 // Clear and rebuild scenes
                                 setChapterSceneCards(prev => { const c={...prev}; delete c[ch.number]; return c; });
                                 setSceneProse(prev => { const c={...prev}; delete c[ch.number]; return c; });
@@ -6858,6 +7009,33 @@ function ChapterBuilder({ story, universe, chapterState }) {
                           </div>
                         )}
                       </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Version History + auto re-check indicator (live scene flow) ── */}
+                {(chapterProse[ch.number] || (chapterVersions[ch.number]||[]).length > 0) && (
+                  <div style={{ marginTop:10 }}>
+                    <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+                      <button onClick={() => setViewingVersionsCh(viewingVersionsCh === ch.number ? null : ch.number)}
+                        style={{ padding:"5px 10px", background:"transparent",
+                                 color:(chapterVersions[ch.number]||[]).length > 0 ? C.amber : C.muted,
+                                 border:"1px solid "+((chapterVersions[ch.number]||[]).length > 0 ? C.amber : C.borderLight),
+                                 borderRadius:5, fontSize:10, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+                        🕐 History{(chapterVersions[ch.number]||[]).length > 0 ? " (" + (chapterVersions[ch.number]||[]).length + ")" : ""}
+                      </button>
+                      {recheckCh === ch.number && (
+                        <span style={{ color:C.amber, fontSize:11, fontStyle:"italic" }}>
+                          ↻ Auto re-checking continuity...
+                        </span>
+                      )}
+                    </div>
+                    {viewingVersionsCh === ch.number && (
+                      <ChapterVersionHistory
+                        chapterNum={ch.number}
+                        versions={chapterVersions[ch.number]}
+                        onRestore={(v) => restoreChapterVersion(ch.number, v)}
+                        onClose={() => setViewingVersionsCh(null)}/>
                     )}
                   </div>
                 )}
@@ -8858,6 +9036,7 @@ export default function App() {
   const [chapterProse, setChapterProse] = useState({});
   const [chapterReports, setChapterReports] = useState({});
   const [chapterSummaries, setChapterSummaries] = useState({});
+  const [chapterVersions, setChapterVersions] = useState({}); // version history per chapter
   const [chapterSceneCards, setChapterSceneCards] = useState({});
   const [sceneProse, setSceneProse] = useState({});
   const [sceneSummaries, setSceneSummaries] = useState({});
@@ -8866,6 +9045,7 @@ export default function App() {
     outline, setOutline, bible, setBible, bibleLocked, setBibleLocked,
     chapterProse, setChapterProse, chapterReports, setChapterReports,
     chapterSummaries, setChapterSummaries,
+    chapterVersions, setChapterVersions,
     chapterSceneCards, setChapterSceneCards, sceneProse, setSceneProse,
     sceneSummaries, setSceneSummaries, sceneLocked, setSceneLocked
   };
@@ -8986,6 +9166,7 @@ export default function App() {
     setBibleLocked(importedBibleLocked || false);
     setStoryDNALocked(importedDNALocked || false);
     setChapterProse(importedProse && Object.keys(importedProse).length ? importedProse : {});
+    setChapterVersions({});
 
     setShowingImport(false);
     setActiveSection("newStory");
@@ -9004,6 +9185,7 @@ export default function App() {
     setting, city, family, intensity, externalConflict, relationshipObstacle, familyInfluence,
     spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng,
     blueprint: story, outline, bible, bibleLocked, storyDNALocked, chapterProse, chapterReports, chapterSummaries,
+    chapterVersions,
     chapterSceneCards, sceneProse, sceneSummaries, sceneLocked, bookPackage
   });
 
@@ -9036,7 +9218,7 @@ export default function App() {
     setStreetLitEng({...DEFAULT_STREETLIT}); streetLitAppliedRef.current = null;
     setSuspenseEng({...DEFAULT_SUSPENSE}); suspenseAppliedRef.current = null;
     setStory(null); setOutline(null); setBible(null); setBibleLocked(false); setStoryDNALocked(false);
-    setChapterProse({}); setChapterReports({}); setChapterSummaries({});
+    setChapterProse({}); setChapterReports({}); setChapterSummaries({}); setChapterVersions({});
     setChapterSceneCards({}); setSceneProse({}); setSceneSummaries({}); setSceneLocked({});
     setBookPackage(null);
   };
@@ -9063,6 +9245,7 @@ export default function App() {
     setBibleLocked(rec.bibleLocked ?? !!rec.bible);  // legacy bibles count as locked
     setStoryDNALocked(rec.storyDNALocked ?? !!(rec.blueprint && rec.blueprint.storyDNA));
     setChapterProse(rec.chapterProse ?? {}); setChapterReports(rec.chapterReports ?? {}); setChapterSummaries(rec.chapterSummaries ?? {});
+    setChapterVersions(rec.chapterVersions ?? {});
     setChapterSceneCards(rec.chapterSceneCards ?? {}); setSceneProse(rec.sceneProse ?? {});
     setSceneSummaries(rec.sceneSummaries ?? {}); setSceneLocked(rec.sceneLocked ?? {});
     setBookPackage(rec.bookPackage ?? null);
@@ -9100,7 +9283,7 @@ export default function App() {
     if (!window.confirm("Regenerating will replace your story's foundation. All chapters, the Story Bible, and continuity data will be cleared. Are you sure?")) return;
     setStoryDNALocked(false);
     setStory(null); setOutline(null); setBible(null); setBibleLocked(false);
-    setChapterProse({}); setChapterReports({}); setChapterSummaries({});
+    setChapterProse({}); setChapterReports({}); setChapterSummaries({}); setChapterVersions({});
     setChapterSceneCards({}); setSceneProse({}); setSceneSummaries({}); setSceneLocked({});
     setBookPackage(null); setStoryHealthReport(null);
     goToSection("newStory");
@@ -9214,7 +9397,7 @@ export default function App() {
   }, [activeStoryId, story, laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
       setting, city, family, intensity, externalConflict, relationshipObstacle, familyInfluence,
       spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng, outline, bible, bibleLocked, storyDNALocked, chapterProse, chapterReports, chapterSummaries,
-      chapterSceneCards, sceneProse, sceneSummaries, sceneLocked, bookPackage]);
+      chapterVersions, chapterSceneCards, sceneProse, sceneSummaries, sceneLocked, bookPackage]);
 
   // Hydrate the active story once on mount so a refresh restores your place
   useEffect(() => {
