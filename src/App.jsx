@@ -16,6 +16,7 @@ import PlotThreadTracker from "./components/PlotThreadTracker";
 // ── Lazy-loaded workspace sections (code-split into separate chunks) ──
 const EditorModeDashboardLazy = lazy(() => import("./components/EditorModeDashboard"));
 const ImportStoryLazy         = lazy(() => import("./components/ImportStory"));
+const SceneStudioLazy         = lazy(() => import("./components/SceneStudio"));
 
 // ── Suspense fallback shown while a lazy workspace chunk loads ──
 function GlassLoadingFallback({ label }) {
@@ -3417,6 +3418,107 @@ function ChapterBuilder({ story, universe, chapterState, saveStatus, forceSave, 
   );
 }
 
+// ── NewStoryStickyNav ─────────────────────────────────────────
+const NEW_STORY_SECTIONS = [
+  { id: "blend",      label: "Blend" },
+  { id: "characters", label: "Characters" },
+  { id: "tropes",     label: "Tropes" },
+  { id: "heat",       label: "Heat" },
+  { id: "blueprint",  label: "Blueprint" },
+];
+
+function NewStoryStickyNav({ story, loading, canRun, onGenerate, onRegenerate, storyDNALocked }) {
+  const [activeId, setActiveId] = useState("blend");
+
+  useEffect(() => {
+    const observers = NEW_STORY_SECTIONS.map(s => {
+      const el = document.getElementById(s.id);
+      if (!el) return null;
+      const obs = new IntersectionObserver(
+        ([entry]) => { if (entry.isIntersecting) setActiveId(s.id); },
+        { threshold: 0.25 }
+      );
+      obs.observe(el);
+      return obs;
+    }).filter(Boolean);
+    return () => observers.forEach(o => o.disconnect());
+  }, []);
+
+  return (
+    <div style={{
+      position: "sticky", top: 0, zIndex: 10,
+      background: C.surface, borderBottom: "1px solid " + C.borderLight,
+      padding: "8px 0 8px 0", marginBottom: 18,
+      display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap",
+    }}>
+      {NEW_STORY_SECTIONS.map(s => (
+        <button key={s.id}
+          onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth" })}
+          style={{
+            padding: "5px 14px",
+            background: activeId === s.id ? C.goldDim : "transparent",
+            border: "1px solid " + (activeId === s.id ? C.gold : "transparent"),
+            borderRadius: 16, color: activeId === s.id ? C.gold : C.muted,
+            fontSize: 11, fontWeight: activeId === s.id ? 700 : 400,
+            cursor: "pointer", transition: "all 0.15s", fontFamily: "Nunito, sans-serif",
+          }}>
+          {s.label}
+        </button>
+      ))}
+      <div style={{ flex: 1 }}/>
+      {story && storyDNALocked ? (
+        <button onClick={onRegenerate}
+          style={{ padding: "5px 14px", background: "transparent", border: "1px solid " + C.borderLight, borderRadius: 16, color: C.muted, fontSize: 11, cursor: "pointer", fontFamily: "Nunito, sans-serif" }}>
+          ↺ Regenerate
+        </button>
+      ) : (
+        <button onClick={onGenerate} disabled={!canRun}
+          style={{ padding: "5px 14px", background: canRun ? C.gold : C.faint, color: canRun ? C.bg : C.muted, border: "none", borderRadius: 16, fontSize: 11, fontWeight: 700, cursor: canRun ? "pointer" : "not-allowed", fontFamily: "Nunito, sans-serif" }}>
+          {loading ? "↻ Generating…" : "✦ Generate Blueprint"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── ScoreCard — animated count-up ────────────────────────────
+function ScoreCard({ label, value, max = 10 }) {
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    if (!value) return;
+    const target = Number(value);
+    let start = null;
+    const animate = (ts) => {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / 800, 1);
+      setDisplay(Math.round(progress * target));
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, [value]);
+
+  const pct = (Number(value) / max) * 100;
+  const color = pct >= 80 ? C.teal : pct >= 60 ? C.gold : C.amber;
+
+  return (
+    <div style={{
+      padding: "16px 18px", background: C.card,
+      border: "1px solid " + C.borderLight, borderRadius: 12, minWidth: 110,
+    }}>
+      <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 32, fontWeight: 700, color, lineHeight: 1, marginBottom: 4 }}>
+        {display}<span style={{ fontSize: 13, color: C.muted, fontFamily: "Nunito, sans-serif", fontWeight: 400 }}>/{max}</span>
+      </div>
+      <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, fontFamily: "Nunito, sans-serif" }}>
+        {label}
+      </div>
+      <div style={{ marginTop: 8, height: 3, background: C.borderLight, borderRadius: 2, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: pct + "%", background: color, borderRadius: 2, transition: "width 0.8s ease" }}/>
+      </div>
+    </div>
+  );
+}
+
 function ScoreBar({ label, value, max=10, color }) {
   const pct = Math.max(0, Math.min(100, (value/max)*100));
   return (
@@ -3572,23 +3674,54 @@ function ActivatedPatternsCard({ patterns, calibration, currentSpice, currentInt
 function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activeUniverse, activatedPatterns, chapterState, saveStatus, forceSave, activeStoryId, pendingSceneDirectorIssue, setPendingSceneDirectorIssue, onGoToEditorMode }) {
   return (
     <div style={{ marginTop:28 }}>
-      <div style={{ padding:"28px 30px", background:"linear-gradient(135deg, "+C.surface+", "+C.card+")",
-                    border:"1px solid "+C.gold, borderRadius:14 }}>
-        <div style={{ color:C.gold, fontSize:11, letterSpacing:2.5, textTransform:"uppercase", fontWeight:700, marginBottom:8 }}>
+
+      {/* ── Blueprint Hero ── */}
+      <div style={{ padding:"40px 0 28px", borderBottom:"1px solid "+C.borderLight, marginBottom:28 }}>
+        <div style={{ color:C.gold, fontSize:11, letterSpacing:2.5, textTransform:"uppercase", fontWeight:700, marginBottom:12 }}>
           The Blueprint
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap", marginBottom:10 }}>
-          <div style={{ fontFamily:"Cormorant Garamond, serif", color:C.text, fontSize:38, fontWeight:700, lineHeight:1.15 }}>
+        <div style={{ display:"flex", alignItems:"flex-start", gap:12, flexWrap:"wrap", marginBottom:10 }}>
+          <h1 style={{ fontFamily:"Playfair Display, Georgia, serif", fontSize:36, fontWeight:700, color:C.text, lineHeight:1.2, margin:0 }}>
             {story.title}
-          </div>
+          </h1>
           {story.storyDNA && (
-            <span style={{ padding:"3px 10px", background:C.glow, border:"1px solid "+C.gold, borderRadius:12,
-                           color:C.gold, fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>🔒 Story DNA Locked</span>
+            <span style={{ padding:"3px 10px", background:C.glow, border:"1px solid "+C.gold, borderRadius:12, color:C.gold, fontSize:11, fontWeight:700, whiteSpace:"nowrap", marginTop:6 }}>🔒 Story DNA Locked</span>
           )}
         </div>
-        <div style={{ color:C.amber, fontFamily:"Cormorant Garamond, serif", fontSize:20, fontStyle:"italic", marginBottom:18 }}>
-          {story.tagline}
+        {story.tagline && (
+          <p style={{ fontFamily:"Cormorant Garamond, serif", fontSize:20, fontStyle:"italic", color:C.gold, lineHeight:1.5, marginBottom:14, marginTop:0 }}>
+            {story.tagline}
+          </p>
+        )}
+        {story.hook && (
+          <p style={{ fontSize:14, color:C.muted, lineHeight:1.75, maxWidth:680, marginBottom:18, marginTop:0 }}>
+            {story.hook}
+          </p>
+        )}
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom: story.scores ? 0 : 0 }}>
+          {story.genreBlend && (
+            <span style={{ padding:"3px 10px", background:C.glow, border:"1px solid "+C.gold, borderRadius:12, color:C.gold, fontSize:11, fontWeight:600 }}>{story.genreBlend}</span>
+          )}
+          {story.spiceLevel != null && (
+            <span style={{ padding:"3px 10px", background:"rgba(184,52,45,0.08)", border:"1px solid "+C.err, borderRadius:12, color:C.err, fontSize:11 }}>
+              {"🌶".repeat(Math.min(story.spiceLevel,5))} Spice {story.spiceLevel}
+            </span>
+          )}
+          {story.wordCountTarget && (
+            <span style={{ padding:"3px 10px", background:C.faint, border:"1px solid "+C.borderLight, borderRadius:12, color:C.muted, fontSize:11 }}>{story.wordCountTarget}</span>
+          )}
         </div>
+        {/* Score cards */}
+        {story.scores && Object.keys(story.scores).length > 0 && (
+          <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginTop:24 }}>
+            {Object.entries(story.scores).map(([key, val]) => (
+              <ScoreCard key={key} label={key.replace(/([A-Z])/g," $1").trim()} value={val} max={10}/>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ padding:"22px 26px", background:"linear-gradient(135deg, "+C.surface+", "+C.card+")", border:"1px solid "+C.gold, borderRadius:14, marginBottom:20 }}>
         {story.storyDNA && (
           <div style={{ background:C.manuscript, borderLeft:"3px solid "+C.gold, borderRadius:6, padding:"12px 16px", marginBottom:18 }}>
             <div style={{ color:C.gold, fontSize:10, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:8 }}>Story DNA</div>
@@ -3608,7 +3741,6 @@ function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activ
             ))}
           </div>
         )}
-        <InfoBlock label="The Hook">{story.hook}</InfoBlock>
         <InfoBlock label="Reader Promise">{story.readerPromise}</InfoBlock>
       </div>
 
@@ -5068,8 +5200,74 @@ export default function App() {
               )
             )}
 
-            {/* Default story-builder view — activeSection in {newStory, storyBible, characterStudio, sceneStudio, draftManuscript} all render the full builder */}
-            {!["dashboard","readerIntelligence","settings","myStories","editorMode"].includes(activeSection) && (
+            {/* ── SCENE STUDIO — 3-panel writing workspace ── */}
+            {activeSection === "sceneStudio" && (
+              story ? (
+                <Suspense fallback={<GlassLoadingFallback label="Loading Scene Studio..." />}>
+                  <SceneStudioLazy
+                    story={story} outline={outline} bible={bible} setBible={setBible}
+                    universe={activeUniverse}
+                    chapterSceneCards={chapterSceneCards} setChapterSceneCards={setChapterSceneCards}
+                    chapterProse={chapterProse} setChapterProse={setChapterProse}
+                    chapterReports={chapterReports} setChapterReports={setChapterReports}
+                    chapterSummaries={chapterSummaries} setChapterSummaries={setChapterSummaries}
+                    chapterVersions={chapterVersions} setChapterVersions={setChapterVersions}
+                    sceneProse={sceneProse} setSceneProse={setSceneProse}
+                    sceneSummaries={sceneSummaries} setSceneSummaries={setSceneSummaries}
+                    sceneLocked={sceneLocked} setSceneLocked={setSceneLocked}
+                    maxWordsPerGen={2500}
+                    forceSave={forceSave}
+                    storyHealthReport={storyHealthReport}
+                    pendingSceneDirectorIssue={pendingSceneDirectorIssue}
+                    setPendingSceneDirectorIssue={setPendingSceneDirectorIssue}
+                    onGoToEditorMode={()=>{ setActiveSection("editorMode"); setView("story"); }}
+                    renderReport={({ chapterNum }) => (
+                      chapterReports[chapterNum] ? (
+                        <ContinuityReportCard
+                          report={chapterReports[chapterNum]}
+                          onApplyPatch={async () => {
+                            const r = chapterReports[chapterNum];
+                            if (!r?.revisionPatch?.revisedText) return;
+                            const note = "\n\n[EDITOR PATCH APPLIED]: " + r.revisionPatch.revisedText;
+                            setChapterProse(prev => ({...prev, [chapterNum]: (prev[chapterNum]||"") + note}));
+                            setChapterReports(prev => ({...prev, [chapterNum]: {...prev[chapterNum], resolved:true, _patchApplied:true}}));
+                          }}
+                          onAcknowledgePatch={() => setChapterReports(prev => ({...prev, [chapterNum]: {...prev[chapterNum], resolved:true}}))}
+                          onMarkResolved={() => {
+                            if (!window.confirm("Mark Chapter "+chapterNum+" as resolved?")) return;
+                            setChapterReports(prev => ({...prev, [chapterNum]: {...prev[chapterNum], resolved:true}}));
+                          }}
+                          onRegenerate={() => {
+                            setChapterSceneCards(prev => { const c={...prev}; delete c[chapterNum]; return c; });
+                            setSceneProse(prev => { const c={...prev}; delete c[chapterNum]; return c; });
+                            setSceneSummaries(prev => { const c={...prev}; delete c[chapterNum]; return c; });
+                            setChapterReports(prev => { const c={...prev}; delete c[chapterNum]; return c; });
+                          }}/>
+                      ) : null
+                    )}
+                    renderVersionHistory={({ chapterNum }) => (
+                      (chapterVersions[chapterNum]||[]).length > 0 ? (
+                        <ChapterVersionHistory
+                          chapterNum={chapterNum}
+                          versions={chapterVersions[chapterNum]}
+                          onRestore={(v) => {
+                            if (!window.confirm("Restore this version?")) return;
+                            setChapterProse(prev => ({...prev, [chapterNum]: v.prose}));
+                            setChapterReports(prev => { const c={...prev}; delete c[chapterNum]; return c; });
+                            setChapterSummaries(prev => { const c={...prev}; delete c[chapterNum]; return c; });
+                          }}
+                          onClose={() => {}}/>
+                      ) : null
+                    )}
+                  />
+                </Suspense>
+              ) : (
+                <NeedsStoryEmpty section="Scene Studio" onGoToBuilder={()=>goToSection("newStory")}/>
+              )
+            )}
+
+            {/* Default story-builder view — activeSection in {newStory, storyBible, characterStudio, draftManuscript} render the full builder */}
+            {!["dashboard","readerIntelligence","settings","myStories","editorMode","sceneStudio"].includes(activeSection) && (
               <>
             {activeUniverse && (
               <div style={{ padding:"14px 20px", background:C.glow, border:"1px solid "+C.gold,
@@ -5097,8 +5295,14 @@ export default function App() {
           <StoryConceptInput value={userConcept} onChange={setUserConcept}/>
         )}
 
+        {/* STORY CONCEPT STICKY NAV */}
+        <NewStoryStickyNav
+          story={story} loading={loading} canRun={canRun}
+          onGenerate={run} onRegenerate={regenerateBlueprint}
+          storyDNALocked={storyDNALocked}/>
+
         {/* STORY BLEND */}
-        <div style={{ padding:"24px 28px", background:C.surface, border:"1px solid "+C.border, borderRadius:14, marginBottom:22 }}>
+        <div id="blend" style={{ padding:"24px 28px", background:C.surface, border:"1px solid "+C.border, borderRadius:14, marginBottom:22 }}>
           <div style={{ color:C.gold, fontSize:11, letterSpacing:2, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>
             01 · Story Blend Engine
           </div>
@@ -5114,7 +5318,7 @@ export default function App() {
         </div>
 
         {/* CHARACTERS */}
-        <div style={{ padding:"24px 28px", background:C.surface, border:"1px solid "+C.border, borderRadius:14, marginBottom:22 }}>
+        <div id="characters" style={{ padding:"24px 28px", background:C.surface, border:"1px solid "+C.border, borderRadius:14, marginBottom:22 }}>
           <div style={{ color:C.gold, fontSize:11, letterSpacing:2, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>
             02 · Character Architecture
           </div>
@@ -5131,7 +5335,7 @@ export default function App() {
         </div>
 
         {/* TROPES */}
-        <div style={{ padding:"24px 28px", background:C.surface, border:"1px solid "+C.border, borderRadius:14, marginBottom:22 }}>
+        <div id="tropes" style={{ padding:"24px 28px", background:C.surface, border:"1px solid "+C.border, borderRadius:14, marginBottom:22 }}>
           <div style={{ color:C.gold, fontSize:11, letterSpacing:2, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>
             03 · Trope Engine
           </div>
@@ -5271,7 +5475,7 @@ export default function App() {
         </div>
 
         {/* SPICE + ROMANCE INTENSITY */}
-        <div style={{ marginBottom:22 }}>
+        <div id="heat" style={{ marginBottom:22 }}>
           <div style={{ padding:"16px 18px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10, marginBottom:14 }}>
             <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:2 }}>
               Extended Genre Lanes
@@ -5333,6 +5537,7 @@ export default function App() {
         )}
 
         {story && (
+          <div id="blueprint">
           <Blueprint
             story={story}
             universes={universes}
@@ -5347,6 +5552,7 @@ export default function App() {
             pendingSceneDirectorIssue={pendingSceneDirectorIssue}
             setPendingSceneDirectorIssue={setPendingSceneDirectorIssue}
             onGoToEditorMode={()=>{ setActiveSection("editorMode"); setView("story"); }}/>
+          </div>
         )}
 
               </>
