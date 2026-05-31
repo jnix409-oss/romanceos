@@ -1,17 +1,60 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from "react";
+import { C, FONT_CSS } from "./constants/theme";
+import Chip from "./components/Chip";
+import PlotThreadTracker from "./components/PlotThreadTracker";
 
-const FONT_CSS = `@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Nunito:wght@300;400;500;600;700&display=swap');`;
+// ── Lazy-loaded workspace sections (code-split into separate chunks) ──
+const EditorModeDashboardLazy = lazy(() => import("./components/EditorModeDashboard"));
+const PublishingPanelLazy     = lazy(() => import("./components/PublishingPanel"));
+const ImportStoryLazy         = lazy(() => import("./components/ImportStory"));
 
-const C = {
-  bg:"#FCFCF9", surface:"#FFFFFF", card:"#F8F7F2", cardLight:"#FFFFFF",
-  border:"#E8E5DE", borderLight:"#EFEDE7",
-  text:"#1A1612", muted:"#6B665E", faint:"#F2F0EA",
-  gold:"#B8841C", amber:"#C8941F", glow:"rgba(184,132,28,0.10)",
-  manuscript:"#FAF6EC", manuscriptBorder:"#EFE6CF",
-  successBg:"#E8F5F0", successText:"#2D8B7A",
-  warningBg:"#FAF5E8", warningText:"#B07A1F",
-  errorBg:"#FBE9E7", errorText:"#B8342D",
-};
+// ── Suspense fallback shown while a lazy workspace chunk loads ──
+function GlassLoadingFallback({ label }) {
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      minHeight: 320, padding: "60px 40px",
+    }}>
+      <div style={{
+        background: "rgba(255,255,255,0.05)",
+        backdropFilter: "blur(24px)",
+        WebkitBackdropFilter: "blur(24px)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 24,
+        boxShadow: "0 10px 40px rgba(0,0,0,0.25)",
+        padding: "40px 48px",
+        textAlign: "center",
+        minWidth: 280,
+      }}>
+        <div style={{
+          width: 48, height: 48,
+          border: "3px solid rgba(184,132,28,0.15)",
+          borderTop: "3px solid " + C.gold,
+          borderRadius: "50%",
+          margin: "0 auto 20px",
+          animation: "obsidianSpin 0.9s linear infinite",
+        }}/>
+        <div style={{
+          color: C.gold,
+          fontFamily: "Cormorant Garamond, serif",
+          fontSize: 18, fontWeight: 600,
+          marginBottom: 6,
+        }}>
+          {label || "Loading..."}
+        </div>
+        <div style={{ color: C.muted, fontSize: 12 }}>
+          Obsidian Story OS
+        </div>
+      </div>
+      <style>{`
+        @keyframes obsidianSpin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 const LANES = [
   { id:"healing",     label:"Emotional Healing",          color:"#A070C8", desc:"Deep wounds, vulnerability, transformation, catharsis" },
@@ -3668,23 +3711,6 @@ function LaneSlider({ lane, value, normValue, onChange }) {
   );
 }
 
-function Chip({ active, onClick, children, color }) {
-  return (
-    <button onClick={onClick}
-      style={{
-        padding:"7px 14px", borderRadius:18,
-        background: active ? (color||C.gold) : "transparent",
-        color: active ? C.bg : C.text,
-        border: "1px solid " + (active ? (color||C.gold) : C.borderLight),
-        fontSize:13, fontWeight:500, cursor:"pointer", transition:"all 0.15s",
-        fontFamily:"Nunito, sans-serif"
-      }}>
-      {children}
-    </button>
-  );
-}
-
-// Trope chip with category color, heat dots, and series indicator (Phase: trope DB)
 function TropeChip({ trope, active, onClick }) {
   const color = TROPE_CATEGORY_COLORS[trope.category] || C.gold;
   const dots = "●".repeat(trope.heatLevel) + "○".repeat(Math.max(0, 5 - trope.heatLevel));
@@ -4793,84 +4819,6 @@ function BibleSection({ title, icon, children, defaultOpen=false }) {
   );
 }
 
-function PlotThreadTracker({ bible, currentChapterCount, onAddManualThread }) {
-  const [newThread, setNewThread] = useState("");
-  const [adding, setAdding] = useState(false);
-
-  if (!bible) return null;
-
-  const threads = [
-    ...(bible.plot?.mysteries || []).map(m => ({ name: m.name, type:"Mystery", status: m.status || "open" })),
-    ...(bible.plot?.secrets || []).filter(s => !s.revealedIn).map(s => ({ name: s.owner + ": " + s.secret, type:"Secret", status:"open" })),
-    ...(bible.plot?.subplots || []).map(s => ({ name: typeof s === "string" ? s : s.name || s, type:"Subplot", status:"open" })),
-    ...(bible.plot?.manualThreads || []).map(t => ({ name: t.name, type:"Manual", status: t.status || "open" })),
-  ];
-
-  const chapterEntries = bible.chapters || [];
-  threads.forEach(thread => {
-    let lastSeen = 0;
-    chapterEntries.forEach(ch => {
-      const allText = [ ...(ch.unresolvedThreads || []), ...(ch.majorEvents || []) ].join(" ").toLowerCase();
-      if (allText.includes(thread.name.toLowerCase().slice(0, 15))) {
-        lastSeen = Math.max(lastSeen, ch.number || 0);
-      }
-    });
-    thread.lastActiveChapter = lastSeen;
-    const chaptersSince = currentChapterCount - lastSeen;
-    thread.dormant = (thread.status !== "resolved" && lastSeen > 0 && chaptersSince >= 3);
-  });
-
-  const TYPE_COLORS = { Mystery: "#4888C8", Secret: "#9F7AEA", Subplot: "#2D8B7A", Manual: "#B8841C" };
-  const STATUS_COLORS = { open: "#D88830", closing: "#2D8B7A", resolved: "#6B665E", issue: "#B8342D" };
-
-  return (
-    <div style={{ marginTop:14 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-        <div style={{ color:C.gold, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>
-          🧵 Plot Thread Tracker · {threads.length} threads
-        </div>
-        <button onClick={() => setAdding(!adding)}
-          style={{ padding:"3px 10px", background:"transparent", color:C.amber, border:"1px solid "+C.amber, borderRadius:4, fontSize:10, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
-          + Add Thread
-        </button>
-      </div>
-
-      {adding && (
-        <div style={{ display:"flex", gap:8, marginBottom:10 }}>
-          <input value={newThread} onChange={e => setNewThread(e.target.value)}
-            placeholder="Thread name or description..."
-            style={{ flex:1, padding:"6px 10px", background:C.card, color:C.text, border:"1px solid "+C.border, borderRadius:6, fontSize:12, fontFamily:"Nunito, sans-serif" }}/>
-          <button onClick={() => { if (!newThread.trim()) return; onAddManualThread && onAddManualThread(newThread.trim()); setNewThread(""); setAdding(false); }}
-            style={{ padding:"6px 12px", background:C.gold, color:C.bg, border:"none", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
-            Add
-          </button>
-        </div>
-      )}
-
-      <div style={{ display:"grid", gap:6 }}>
-        {threads.length === 0 && (
-          <div style={{ color:C.muted, fontSize:12, fontStyle:"italic", padding:"10px 0" }}>
-            No plot threads detected yet. Initialize the Story Bible to auto-populate.
-          </div>
-        )}
-        {threads.map((t, i) => (
-          <div key={i} style={{ padding:"8px 12px", background:C.bg, border:"1px solid " + (t.dormant ? "#B8342D" : C.borderLight), borderRadius:6, borderLeft: "3px solid " + TYPE_COLORS[t.type] }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", flexWrap:"wrap", gap:6 }}>
-              <span style={{ color:C.text, fontSize:12, fontWeight:600, flex:1, minWidth:120 }}>{t.name}</span>
-              <div style={{ display:"flex", gap:5, alignItems:"center", flexShrink:0 }}>
-                <span style={{ padding:"1px 6px", background:TYPE_COLORS[t.type]+"22", border:"1px solid "+TYPE_COLORS[t.type], borderRadius:8, fontSize:9, color:TYPE_COLORS[t.type], fontWeight:700 }}>{t.type}</span>
-                <span style={{ padding:"1px 6px", background:STATUS_COLORS[t.status]+"22", border:"1px solid "+STATUS_COLORS[t.status], borderRadius:8, fontSize:9, color:STATUS_COLORS[t.status], fontWeight:700, textTransform:"uppercase" }}>{t.status}</span>
-                {t.lastActiveChapter > 0 && (<span style={{ color:C.muted, fontSize:10 }}>Ch {t.lastActiveChapter}</span>)}
-                {t.dormant && (<span style={{ color:"#B8342D", fontSize:10, fontWeight:700 }}>⚠ Dormant</span>)}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function StoryBibleViewer({ bible, currentChapterCount, onAddManualThread }) {
   if (!bible) return null;
   const w = bible.world || {};
@@ -5836,459 +5784,6 @@ function ChapterCard({ ch, prose, report, summary, editing, onWrite, onContinue,
 }
 
 // ── Publishing Studio Component ──────────────────────────────
-
-function PublishingPanel({ title, icon, children, defaultOpen=false, accent }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const ac = accent || C.gold;
-  return (
-    <div style={{ marginBottom:14, background:C.card, border:"1px solid "+C.borderLight, borderRadius:10, overflow:"hidden" }}>
-      <button onClick={()=>setOpen(!open)}
-        style={{ width:"100%", padding:"14px 18px", background:"transparent", border:"none", textAlign:"left",
-                 cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <span style={{ fontSize:16 }}>{icon}</span>
-          <span style={{ color:ac, fontSize:12, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>{title}</span>
-        </div>
-        <span style={{ color:C.muted, fontSize:20 }}>{open?"−":"+"}</span>
-      </button>
-      {open && <div style={{ padding:"4px 18px 20px 18px", borderTop:"1px solid "+C.faint }}>{children}</div>}
-    </div>
-  );
-}
-
-function PublishingStudio({ story, outline, bible, packageData, generating, progress, onGenerate, onExport, error }) {
-  const pkg = packageData || {};
-  const pos = pkg.positioning;
-  const titles = pkg.titles || [];
-  const rp = pkg.readerPromiseDetail;
-  const desc = pkg.descriptions;
-  const cov = pkg.coverStrategy;
-  const series = pkg.seriesBranding;
-  const author = pkg.authorBrand;
-  const mkt = pkg.marketingAssets;
-  const adapt = pkg.adaptationReadiness;
-  const ready = pkg.commercialReadiness;
-
-  const Score = ({ value, max=10 }) => {
-    const v = typeof value === "number" ? value : 0;
-    const color = v >= 8 ? "#2D8B7A" : v >= 6 ? "#B07A1F" : "#D88830";
-    return <span style={{ padding:"1px 7px", background:color+"22", border:"1px solid "+color, borderRadius:8, fontSize:10, color:color, fontWeight:700 }}>{v}/{max}</span>;
-  };
-
-  return (
-    <div style={{ marginTop:36, padding:"24px 26px", background:C.surface, border:"1px solid "+C.gold, borderRadius:14 }}>
-      <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", flexWrap:"wrap", gap:12, marginBottom:20 }}>
-        <div>
-          <div style={{ color:C.gold, fontSize:11, letterSpacing:2, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>
-            🚀 Publishing Studio
-          </div>
-          <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:26, fontWeight:600 }}>
-            Book Launch Package
-          </div>
-          <div style={{ color:C.muted, fontSize:12, marginTop:4 }}>
-            Once your manuscript is publication-ready, this packages it for commercial release.
-          </div>
-        </div>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          {!packageData && (
-            <button onClick={onGenerate} disabled={generating}
-              style={{ padding:"10px 20px", background:generating?C.faint:"linear-gradient(135deg, "+C.gold+", "+C.amber+")",
-                       color:generating?C.muted:C.bg, border:"none", borderRadius:8, fontWeight:700, fontSize:13,
-                       cursor:generating?"wait":"pointer", fontFamily:"Nunito, sans-serif" }}>
-              {generating ? (progress || "Generating package...") : "✨ Generate Launch Package"}
-            </button>
-          )}
-          {packageData && (
-            <>
-              <button onClick={onGenerate} disabled={generating}
-                style={{ padding:"8px 14px", background:"transparent", color:C.amber, border:"1px solid "+C.amber, borderRadius:6, fontSize:12, fontWeight:600, cursor:generating?"wait":"pointer", fontFamily:"Nunito, sans-serif" }}>
-                {generating ? "Regenerating..." : "🔄 Regenerate"}
-              </button>
-              <button onClick={onExport}
-                style={{ padding:"8px 14px", background:C.gold, color:C.bg, border:"none", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
-                ⬇ Export Full Package
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {error && <div style={{ marginBottom:14, padding:"10px 14px", background:"#FBE9E7", border:"1px solid #B8342D", borderRadius:6, color:"#B8342D", fontSize:12 }}>⚠ {error}</div>}
-
-      {generating && !packageData && (
-        <div style={{ padding:"14px 18px", background:C.manuscript, borderLeft:"3px solid "+C.gold, borderRadius:4, color:C.amber, fontSize:12, fontStyle:"italic", marginBottom:14 }}>
-          {progress || "Generating comprehensive book launch package (3 AI calls)..."}
-        </div>
-      )}
-
-      {/* Commercial Readiness Summary — top of package */}
-      {ready && (
-        <div style={{ marginBottom:18, padding:"18px 22px", background:"linear-gradient(135deg, "+C.card+", "+C.surface+")",
-                      border:"2px solid "+C.gold, borderRadius:12 }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:10, flexWrap:"wrap", gap:8 }}>
-            <div>
-              <div style={{ color:C.gold, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>
-                Commercial Readiness Score
-              </div>
-              <div style={{ color:C.muted, fontSize:11, marginTop:2 }}>How ready this book is for market</div>
-            </div>
-            <div style={{ color:C.gold, fontFamily:"Cormorant Garamond, serif", fontSize:48, fontWeight:700, lineHeight:1 }}>
-              {ready.score}<span style={{ color:C.muted, fontSize:24 }}>/10</span>
-            </div>
-          </div>
-          {ready.strengths && ready.strengths.length > 0 && (
-            <div style={{ marginBottom:8 }}>
-              <div style={{ color:"#2D8B7A", fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>Strengths</div>
-              <ul style={{ margin:0, paddingLeft:20, color:C.text, fontSize:12, lineHeight:1.6 }}>
-                {ready.strengths.map((s,i)=><li key={i}>{s}</li>)}
-              </ul>
-            </div>
-          )}
-          {ready.concerns && ready.concerns.length > 0 && (
-            <div style={{ marginBottom:10 }}>
-              <div style={{ color:"#D88830", fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>Concerns / Polish opportunities</div>
-              <ul style={{ margin:0, paddingLeft:20, color:C.text, fontSize:12, lineHeight:1.6 }}>
-                {ready.concerns.map((s,i)=><li key={i}>{s}</li>)}
-              </ul>
-            </div>
-          )}
-          {ready.publishingRecommendation && (
-            <div style={{ padding:"10px 14px", background:C.manuscript, borderLeft:"3px solid "+C.gold, borderRadius:4, color:C.text, fontSize:13, lineHeight:1.6, fontStyle:"italic" }}>
-              💡 {ready.publishingRecommendation}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Positioning */}
-      {pos && (
-        <PublishingPanel title="Book Positioning" icon="🎯" defaultOpen={true}>
-          <div style={{ display:"grid", gap:8, fontSize:13, color:C.text, lineHeight:1.6 }}>
-            <div><span style={{ color:C.amber, fontWeight:600 }}>Primary Genre: </span>{pos.primaryGenre}</div>
-            <div><span style={{ color:C.amber, fontWeight:600 }}>Secondary Genre: </span>{pos.secondaryGenre}</div>
-            <div><span style={{ color:C.amber, fontWeight:600 }}>Reader Audience: </span>{pos.readerAudience}</div>
-            <div style={{ padding:"10px 12px", background:C.manuscript, borderLeft:"3px solid "+C.gold, borderRadius:4, fontFamily:"Cormorant Garamond, serif", fontSize:15, fontStyle:"italic" }}>
-              "{pos.readerPromise}"
-            </div>
-            <div style={{ color:C.muted, fontSize:11 }}><span style={{ color:C.amber, fontWeight:600 }}>Category Placement: </span>{pos.categoryPlacement}</div>
-            <div style={{ color:C.muted, fontSize:11 }}><span style={{ color:C.amber, fontWeight:600 }}>Market Position: </span>{pos.marketPosition}</div>
-          </div>
-        </PublishingPanel>
-      )}
-
-      {/* Titles */}
-      {titles.length > 0 && (
-        <PublishingPanel title={"Title Options (" + titles.length + ")"} icon="📖" defaultOpen={true}>
-          <div style={{ display:"grid", gap:8 }}>
-            {titles.map((t,i)=>(
-              <div key={i} style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", flexWrap:"wrap", gap:6 }}>
-                  <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:18, fontWeight:600 }}>
-                    {t.title}
-                  </div>
-                  <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-                    <span style={{ padding:"1px 6px", background:C.surface, border:"1px solid "+C.borderLight, borderRadius:8, fontSize:10, color:C.muted }}>Sales {t.commercialStrength}/10</span>
-                    <span style={{ padding:"1px 6px", background:C.surface, border:"1px solid "+C.borderLight, borderRadius:8, fontSize:10, color:C.muted }}>Memorable {t.memorability}/10</span>
-                    <span style={{ padding:"1px 6px", background:C.surface, border:"1px solid "+C.borderLight, borderRadius:8, fontSize:10, color:C.muted }}>Genre {t.genreAlignment}/10</span>
-                    <span style={{ padding:"1px 6px", background:C.surface, border:"1px solid "+C.borderLight, borderRadius:8, fontSize:10, color:C.muted }}>Series {t.seriesPotential}/10</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </PublishingPanel>
-      )}
-
-      {/* Reader Promise */}
-      {rp && (
-        <PublishingPanel title="Reader Promise" icon="💗">
-          <div style={{ display:"grid", gap:10, fontSize:13, color:C.text, lineHeight:1.6 }}>
-            {rp.emotionalOutcomes && rp.emotionalOutcomes.length > 0 && (
-              <div>
-                <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:4 }}>Emotional Outcomes</div>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-                  {rp.emotionalOutcomes.map((e,i)=>(
-                    <span key={i} style={{ padding:"4px 10px", background:C.glow, border:"1px solid "+C.gold, borderRadius:14, fontSize:12, color:C.gold, fontWeight:600 }}>
-                      {e}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {rp.moodDescription && <div><span style={{ color:C.amber, fontWeight:600 }}>Mood: </span>{rp.moodDescription}</div>}
-            {rp.targetEmotionalState && (
-              <div style={{ padding:"10px 12px", background:C.manuscript, borderLeft:"3px solid "+C.gold, borderRadius:4, fontStyle:"italic" }}>
-                Reader finishes feeling: {rp.targetEmotionalState}
-              </div>
-            )}
-          </div>
-        </PublishingPanel>
-      )}
-
-      {/* Descriptions */}
-      {desc && (
-        <PublishingPanel title="Book Descriptions" icon="📝" defaultOpen={true}>
-          {desc.oneSentenceHook && (
-            <div style={{ marginBottom:14, padding:"12px 16px", background:C.glow, border:"1px solid "+C.gold, borderRadius:8 }}>
-              <div style={{ color:C.gold, fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:5 }}>One-Sentence Hook</div>
-              <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:17, fontWeight:500, fontStyle:"italic", lineHeight:1.5 }}>
-                "{desc.oneSentenceHook}"
-              </div>
-            </div>
-          )}
-          {desc.amazonDescription && (
-            <div style={{ marginBottom:14 }}>
-              <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>
-                Amazon Description ({desc.amazonDescription.split(/\s+/).filter(Boolean).length} words)
-              </div>
-              <div style={{ padding:"14px 16px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6,
-                            color:C.text, fontSize:13, lineHeight:1.7, whiteSpace:"pre-wrap" }}>
-                {desc.amazonDescription}
-              </div>
-            </div>
-          )}
-          {desc.backCoverCopy && (
-            <div style={{ marginBottom:14 }}>
-              <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>
-                Back Cover Copy ({desc.backCoverCopy.split(/\s+/).filter(Boolean).length} words)
-              </div>
-              <div style={{ padding:"14px 16px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6,
-                            color:C.text, fontSize:13, lineHeight:1.7, whiteSpace:"pre-wrap" }}>
-                {desc.backCoverCopy}
-              </div>
-            </div>
-          )}
-          {desc.extendedSalesDescription && (
-            <div>
-              <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>
-                Extended Sales Description ({desc.extendedSalesDescription.split(/\s+/).filter(Boolean).length} words)
-              </div>
-              <div style={{ padding:"14px 16px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6,
-                            color:C.text, fontSize:13, lineHeight:1.7, whiteSpace:"pre-wrap", maxHeight:360, overflowY:"auto" }}>
-                {desc.extendedSalesDescription}
-              </div>
-            </div>
-          )}
-        </PublishingPanel>
-      )}
-
-      {/* Cover Strategy */}
-      {cov && (
-        <PublishingPanel title="Cover Strategy" icon="🎨">
-          <div style={{ display:"grid", gap:12, fontSize:13, color:C.text, lineHeight:1.6 }}>
-            <div><span style={{ color:C.amber, fontWeight:600 }}>Direction: </span>{cov.direction}</div>
-            {cov.visualElements && (
-              <div>
-                <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>Visual Elements</div>
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))", gap:8, fontSize:12 }}>
-                  {cov.visualElements.characterAge && <div><span style={{ color:C.muted }}>Character Age: </span>{cov.visualElements.characterAge}</div>}
-                  {cov.visualElements.characterStyle && <div><span style={{ color:C.muted }}>Character Style: </span>{cov.visualElements.characterStyle}</div>}
-                  {cov.visualElements.mood && <div><span style={{ color:C.muted }}>Mood: </span>{cov.visualElements.mood}</div>}
-                  {cov.visualElements.typography && <div><span style={{ color:C.muted }}>Typography: </span>{cov.visualElements.typography}</div>}
-                  {cov.visualElements.composition && <div style={{ gridColumn:"1/-1" }}><span style={{ color:C.muted }}>Composition: </span>{cov.visualElements.composition}</div>}
-                  {cov.visualElements.colorPalette && cov.visualElements.colorPalette.length > 0 && (
-                    <div style={{ gridColumn:"1/-1" }}>
-                      <span style={{ color:C.muted }}>Color Palette: </span>
-                      {cov.visualElements.colorPalette.map((color,i)=>(
-                        <span key={i} style={{ display:"inline-block", marginRight:6, padding:"2px 8px", background:C.surface, border:"1px solid "+C.borderLight, borderRadius:10, fontSize:11 }}>{color}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            {cov.aiCoverPrompts && (
-              <div>
-                <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>AI Cover Prompts</div>
-                {cov.aiCoverPrompts.midjourney && (
-                  <div style={{ marginBottom:8 }}>
-                    <div style={{ color:C.gold, fontSize:10, fontWeight:700, marginBottom:4 }}>Midjourney</div>
-                    <div style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6, fontSize:12, lineHeight:1.6, fontFamily:"monospace", color:C.text }}>
-                      {cov.aiCoverPrompts.midjourney}
-                    </div>
-                  </div>
-                )}
-                {cov.aiCoverPrompts.gemini && (
-                  <div style={{ marginBottom:8 }}>
-                    <div style={{ color:C.gold, fontSize:10, fontWeight:700, marginBottom:4 }}>Gemini / Image Models</div>
-                    <div style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6, fontSize:12, lineHeight:1.6, fontFamily:"monospace", color:C.text }}>
-                      {cov.aiCoverPrompts.gemini}
-                    </div>
-                  </div>
-                )}
-                {cov.aiCoverPrompts.canvaDirection && (
-                  <div>
-                    <div style={{ color:C.gold, fontSize:10, fontWeight:700, marginBottom:4 }}>Canva / Photoshop Direction</div>
-                    <div style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6, fontSize:12, lineHeight:1.6, color:C.text }}>
-                      {cov.aiCoverPrompts.canvaDirection}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </PublishingPanel>
-      )}
-
-      {/* Series Branding */}
-      {series && (
-        <PublishingPanel title="Series Branding" icon="📚">
-          <div style={{ display:"grid", gap:10, fontSize:13, color:C.text, lineHeight:1.6 }}>
-            <div style={{ padding:"12px 16px", background:C.glow, border:"1px solid "+C.gold, borderRadius:8 }}>
-              <div style={{ color:C.gold, fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>Series Name</div>
-              <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:22, fontWeight:700 }}>{series.seriesName}</div>
-              {series.tagline && <div style={{ color:C.muted, fontSize:13, marginTop:4, fontStyle:"italic" }}>"{series.tagline}"</div>}
-            </div>
-            <div><span style={{ color:C.amber, fontWeight:600 }}>Naming Convention: </span>{series.namingConvention}</div>
-            <div><span style={{ color:C.amber, fontWeight:600 }}>Visual Identity: </span>{series.visualIdentity}</div>
-            {series.futureBooks && series.futureBooks.length > 0 && (
-              <div>
-                <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>Future Book Recommendations</div>
-                <div style={{ display:"grid", gap:6 }}>
-                  {series.futureBooks.map((b,i)=>(
-                    <div key={i} style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6 }}>
-                      <div style={{ display:"flex", gap:10, alignItems:"baseline", marginBottom:3 }}>
-                        <span style={{ color:C.gold, fontSize:11, fontWeight:700 }}>Book {b.bookNumber}</span>
-                        <span style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:16, fontWeight:600 }}>{b.proposedTitle}</span>
-                      </div>
-                      <div style={{ color:C.muted, fontSize:12 }}>{b.concept}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </PublishingPanel>
-      )}
-
-      {/* Author Brand */}
-      {author && (
-        <PublishingPanel title="Author Brand" icon="✍️">
-          <div style={{ display:"grid", gap:10, fontSize:13, color:C.text, lineHeight:1.6 }}>
-            <div style={{ padding:"12px 16px", background:C.glow, border:"1px solid "+C.gold, borderRadius:8 }}>
-              <div style={{ color:C.gold, fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>Positioning</div>
-              <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:20, fontWeight:700 }}>{author.positioning}</div>
-              {author.tagline && <div style={{ color:C.muted, fontSize:13, marginTop:4, fontStyle:"italic" }}>"{author.tagline}"</div>}
-            </div>
-            <div><span style={{ color:C.amber, fontWeight:600 }}>Subgenre Specialty: </span>{author.subgenreSpecialty}</div>
-            <div><span style={{ color:C.amber, fontWeight:600 }}>Audience Promise: </span>{author.audiencePromise}</div>
-            <div><span style={{ color:C.amber, fontWeight:600 }}>Comparable Shelf: </span>{author.comparableAuthorShelf}</div>
-          </div>
-        </PublishingPanel>
-      )}
-
-      {/* Marketing Assets */}
-      {mkt && (
-        <PublishingPanel title="Marketing Assets" icon="📣">
-          {mkt.socialMediaPosts && mkt.socialMediaPosts.length > 0 && (
-            <div style={{ marginBottom:14 }}>
-              <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>Social Media Posts ({mkt.socialMediaPosts.length})</div>
-              <div style={{ display:"grid", gap:6 }}>
-                {mkt.socialMediaPosts.map((p,i)=>(
-                  <div key={i} style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6, fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap", color:C.text }}>
-                    {p}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {mkt.launchPosts && mkt.launchPosts.length > 0 && (
-            <div style={{ marginBottom:14 }}>
-              <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>Launch Posts</div>
-              <div style={{ display:"grid", gap:6 }}>
-                {mkt.launchPosts.map((p,i)=>(
-                  <div key={i} style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6, fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap", color:C.text }}>
-                    {p}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {mkt.readerMagnet && (
-            <div style={{ marginBottom:14 }}>
-              <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>Reader Magnet</div>
-              <div style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6, fontSize:12, lineHeight:1.6, color:C.text }}>
-                {mkt.readerMagnet}
-              </div>
-            </div>
-          )}
-          {mkt.newsletterContent && (
-            <div style={{ marginBottom:14 }}>
-              <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>Newsletter Content</div>
-              <div style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6, fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap", color:C.text }}>
-                {mkt.newsletterContent}
-              </div>
-            </div>
-          )}
-          {mkt.bookClubQuestions && mkt.bookClubQuestions.length > 0 && (
-            <div style={{ marginBottom:14 }}>
-              <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>Book Club Questions</div>
-              <ol style={{ margin:0, paddingLeft:20, color:C.text, fontSize:12, lineHeight:1.6 }}>
-                {mkt.bookClubQuestions.map((q,i)=><li key={i} style={{ marginBottom:4 }}>{q}</li>)}
-              </ol>
-            </div>
-          )}
-          {mkt.characterProfiles && mkt.characterProfiles.length > 0 && (
-            <div style={{ marginBottom:14 }}>
-              <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>Character Profiles</div>
-              <div style={{ display:"grid", gap:8 }}>
-                {mkt.characterProfiles.map((c,i)=>(
-                  <div key={i} style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6 }}>
-                    <div style={{ color:C.gold, fontSize:13, fontWeight:700, marginBottom:4 }}>{c.name}</div>
-                    <div style={{ color:C.text, fontSize:12, lineHeight:1.6 }}>{c.profile}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {mkt.pressRelease && (
-            <div style={{ marginBottom:14 }}>
-              <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>Press Release</div>
-              <div style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6, fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap", color:C.text, maxHeight:280, overflowY:"auto" }}>
-                {mkt.pressRelease}
-              </div>
-            </div>
-          )}
-          {mkt.mediaKit && (
-            <div>
-              <div style={{ color:C.amber, fontSize:11, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>Media Kit</div>
-              <div style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6, fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap", color:C.text }}>
-                {mkt.mediaKit}
-              </div>
-            </div>
-          )}
-        </PublishingPanel>
-      )}
-
-      {/* Adaptation Readiness */}
-      {adapt && (
-        <PublishingPanel title="Adaptation Readiness" icon="🎬">
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(240px, 1fr))", gap:8, marginBottom:14 }}>
-            {["audiobook","podcastSeries","motionComic","youtubeSeries","aiVideoAdaptation","streamingAdaptation"].map(k=>{
-              const item = adapt[k];
-              if (!item) return null;
-              const label = { audiobook:"Audiobook", podcastSeries:"Podcast Series", motionComic:"Motion Comic", youtubeSeries:"YouTube Series", aiVideoAdaptation:"AI Video", streamingAdaptation:"Streaming" }[k];
-              return (
-                <div key={k} style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:4 }}>
-                    <span style={{ color:C.text, fontSize:12, fontWeight:600 }}>{label}</span>
-                    <Score value={item.score}/>
-                  </div>
-                  <div style={{ color:C.muted, fontSize:11, lineHeight:1.5 }}>{item.reason}</div>
-                </div>
-              );
-            })}
-          </div>
-          {adapt.recommendation && (
-            <div style={{ padding:"10px 14px", background:C.glow, borderLeft:"3px solid "+C.gold, borderRadius:4, color:C.text, fontSize:12, lineHeight:1.6, fontStyle:"italic" }}>
-              💡 {adapt.recommendation}
-            </div>
-          )}
-        </PublishingPanel>
-      )}
-    </div>
-  );
-}
 
 function ChapterBuilder({ story, universe, chapterState }) {
   // Manuscript spec
@@ -7810,312 +7305,6 @@ function UniverseBuilder({ universes, onCreate, onOpen, onDelete }) {
 // ── Main App ──────────────────────────────────────────────────
 
 // ── Editor Mode Dashboard (Story Intelligence Layer) ──────────
-function EditorModeDashboard({ story, outline, bible, chapterProse,
-                               chapterSummaries, report, analyzing,
-                               timestamp, error, onRunAnalysis,
-                               onAddManualThread }) {
-
-  const writtenCount = Object.values(chapterProse).filter(Boolean).length;
-  const scoreColor = (s) => s >= 8 ? "#2D8B7A" : s >= 6 ? "#B07A1F" : "#B8342D";
-
-  const ScoreDimension = ({ label, value }) => (
-    <div style={{ marginBottom:8 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-        <span style={{ color:C.muted, fontSize:11 }}>{label}</span>
-        <span style={{ color:scoreColor(value), fontWeight:700, fontSize:12 }}>{value}/10</span>
-      </div>
-      <div style={{ height:5, background:C.faint, borderRadius:3, overflow:"hidden" }}>
-        <div style={{ width:(value/10*100)+"%", height:"100%", background:scoreColor(value), borderRadius:3, transition:"width 0.5s" }}/>
-      </div>
-    </div>
-  );
-
-  return (
-    <div>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:14, marginBottom:24 }}>
-        <div>
-          <div style={{ color:C.gold, fontSize:11, letterSpacing:2, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>
-            Editor Mode · Story Analysis
-          </div>
-          <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:26, fontWeight:600 }}>
-            {story?.title}
-          </div>
-          {timestamp && (
-            <div style={{ color:C.muted, fontSize:11, marginTop:4 }}>
-              Last analyzed: {new Date(timestamp).toLocaleString()}
-            </div>
-          )}
-        </div>
-        <button onClick={onRunAnalysis} disabled={analyzing || writtenCount < 1}
-          style={{ padding:"10px 20px",
-                   background: analyzing||writtenCount<1 ? C.faint : "linear-gradient(135deg,"+C.gold+","+C.amber+")",
-                   color: analyzing||writtenCount<1 ? C.muted : C.bg,
-                   border:"none", borderRadius:8, fontWeight:700, fontSize:13,
-                   cursor: analyzing||writtenCount<1 ? "not-allowed" : "pointer", fontFamily:"Nunito, sans-serif" }}>
-          {analyzing ? `Analyzing ${writtenCount} chapters...` : report ? "↺ Re-run Analysis" : "⚡ Run Full Story Analysis"}
-        </button>
-      </div>
-
-      {error && (
-        <div style={{ padding:"10px 14px", background:"#FBE9E7", border:"1px solid #B8342D", borderRadius:6, color:"#B8342D", fontSize:12, marginBottom:14 }}>
-          ⚠ {error}
-        </div>
-      )}
-
-      {!report && !analyzing && (
-        <div style={{ padding:"24px 28px", background:C.card, border:"1px dashed "+C.borderLight, borderRadius:12, marginBottom:22 }}>
-          <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:20, fontWeight:600, marginBottom:8 }}>
-            Writer's Room Analysis
-          </div>
-          <div style={{ color:C.muted, fontSize:13, lineHeight:1.7, marginBottom:14 }}>
-            When you run the analysis across your {writtenCount} written chapter{writtenCount===1?"":"s"}, you'll get:
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))", gap:8 }}>
-            {[
-              ["📉","Story Sag Map","Where momentum dies"],
-              ["🚪","Dropout Risk","Where readers quit"],
-              ["👤","Character Audit","Who's underdeveloped"],
-              ["🧵","Subplot Rankings","What's working"],
-              ["📖","Promise Fulfillment","Are you on track"],
-              ["🎯","Archetype Alignment","Serving your reader"],
-              ["📊","Readability Score","By 6 dimensions"],
-              ["✏️","5 Editor Notes","Prioritized fixes"],
-            ].map(([icon, label, desc]) => (
-              <div key={label} style={{ padding:"10px 12px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6 }}>
-                <div style={{ fontSize:18, marginBottom:4 }}>{icon}</div>
-                <div style={{ color:C.text, fontSize:12, fontWeight:600 }}>{label}</div>
-                <div style={{ color:C.muted, fontSize:10 }}>{desc}</div>
-              </div>
-            ))}
-          </div>
-          {writtenCount < 3 && (
-            <div style={{ marginTop:14, color:C.amber, fontSize:11 }}>
-              ⚡ Write at least 3 chapters for a meaningful analysis. Currently: {writtenCount} written.
-            </div>
-          )}
-        </div>
-      )}
-
-      {report && (
-        <div style={{ display:"grid", gap:16 }}>
-
-          {/* A — STORY HEALTH */}
-          <div style={{ padding:"22px 26px", background:"linear-gradient(135deg,"+C.surface+","+C.card+")", border:"2px solid "+scoreColor(report.overallHealth?.score||0), borderRadius:12 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", flexWrap:"wrap", gap:12 }}>
-              <div>
-                <div style={{ color:C.gold, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>Story Health</div>
-                <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:18, fontWeight:600 }}>{report.overallHealth?.verdict}</div>
-                <div style={{ color:C.muted, fontSize:12, marginTop:4, maxWidth:420 }}>{report.overallHealth?.summary}</div>
-              </div>
-              <div style={{ fontFamily:"Cormorant Garamond, serif", fontSize:64, fontWeight:700, lineHeight:1, color:scoreColor(report.overallHealth?.score||0) }}>
-                {report.overallHealth?.score}<span style={{ fontSize:24, color:C.muted }}>/10</span>
-              </div>
-            </div>
-          </div>
-
-          {/* B — READABILITY */}
-          <div style={{ padding:"20px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
-            <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:14 }}>📊 Readability Analysis</div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))", gap:"12px 28px" }}>
-              {[
-                ["Overall",report.readabilityAnalysis?.overallScore],
-                ["Pacing",report.readabilityAnalysis?.pacing],
-                ["Dialogue",report.readabilityAnalysis?.dialogue],
-                ["Interiority",report.readabilityAnalysis?.interiority],
-                ["Tension",report.readabilityAnalysis?.tension],
-                ["Voice Consistency",report.readabilityAnalysis?.voiceConsistency],
-              ].map(([label,val]) => ( val != null ? <ScoreDimension key={label} label={label} value={val}/> : null ))}
-            </div>
-            {report.readabilityAnalysis?.archetypeReadabilityNotes && (
-              <div style={{ marginTop:10, padding:"8px 12px", background:C.manuscript, borderLeft:"3px solid "+C.gold, borderRadius:4, color:C.text, fontSize:12, fontStyle:"italic" }}>
-                {report.readabilityAnalysis.archetypeReadabilityNotes}
-              </div>
-            )}
-          </div>
-
-          {/* C — READER ARCHETYPE ALIGNMENT */}
-          {report.readerArchetypeAlignment && (
-            <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:12 }}>
-                <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>
-                  🎯 Reader Archetype Alignment
-                  {story?.primaryReader && (<span style={{ color:C.muted, textTransform:"none", letterSpacing:0, fontWeight:400, marginLeft:6 }}>· {story.primaryReader.archetypeName}</span>)}
-                </div>
-                <span style={{ fontFamily:"Cormorant Garamond, serif", fontSize:24, fontWeight:700, color:scoreColor(report.readerArchetypeAlignment.score) }}>{report.readerArchetypeAlignment.score}/10</span>
-              </div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-                <div>
-                  <div style={{ color:"#2D8B7A", fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Strengths</div>
-                  {(report.readerArchetypeAlignment.strengths||[]).map((s,i) => (
-                    <div key={i} style={{ padding:"4px 8px", background:"rgba(45,139,122,0.10)", border:"1px solid rgba(45,139,122,0.30)", borderRadius:5, fontSize:11, color:"#2D8B7A", marginBottom:4 }}>✓ {s}</div>
-                  ))}
-                </div>
-                <div>
-                  <div style={{ color:"#B8342D", fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Risks</div>
-                  {(report.readerArchetypeAlignment.risks||[]).map((r,i) => (
-                    <div key={i} style={{ padding:"4px 8px", background:"rgba(184,52,45,0.08)", border:"1px solid rgba(184,52,45,0.30)", borderRadius:5, fontSize:11, color:"#B8342D", marginBottom:4 }}>⚠ {r}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* D — PROMISE FULFILLMENT */}
-          {report.promiseFulfillment && (
-            <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:10 }}>
-                <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700 }}>📖 Promise Fulfillment</div>
-                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                  <span style={{ padding:"2px 8px", background: report.promiseFulfillment.onTrack ? "rgba(45,139,122,0.15)" : "rgba(184,52,45,0.10)", border:"1px solid " + (report.promiseFulfillment.onTrack ? "#2D8B7A" : "#B8342D"), borderRadius:10, fontSize:10, fontWeight:700, color: report.promiseFulfillment.onTrack ? "#2D8B7A" : "#B8342D" }}>
-                    {report.promiseFulfillment.onTrack ? "ON TRACK" : "AT RISK"}
-                  </span>
-                  <span style={{ fontFamily:"Cormorant Garamond, serif", fontSize:22, fontWeight:700, color:scoreColor(report.promiseFulfillment.score) }}>{report.promiseFulfillment.score}/10</span>
-                </div>
-              </div>
-              {(report.promiseFulfillment.gaps||[]).map((g,i) => (
-                <div key={i} style={{ padding:"5px 10px", marginBottom:5, background:C.warningBg, border:"1px solid #B07A1F", borderRadius:5, fontSize:11, color:C.warningText }}>⚠ {g}</div>
-              ))}
-            </div>
-          )}
-
-          {/* E — SAG POINTS MAP */}
-          {report.sagPoints && (
-            <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
-              <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:12 }}>📉 Story Sag Points</div>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:14 }}>
-                {(outline?.chapters||[]).map(ch => {
-                  const isSag = (report.sagPoints||[]).some(s => (s.chapters||[]).includes(ch.number));
-                  const sagItem = isSag ? (report.sagPoints||[]).find(s => (s.chapters||[]).includes(ch.number)) : null;
-                  const hasProse = !!chapterProse[ch.number];
-                  return (
-                    <div key={ch.number} title={sagItem ? sagItem.issue : ch.title}
-                      style={{ width:28, height:28, borderRadius:5, background: isSag ? (sagItem?.severity==="high"?"#B8342D":"#B07A1F") : hasProse ? "#2D8B7A" : C.faint, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, color: isSag||hasProse ? C.bg : C.muted, fontWeight:700, cursor:isSag?"help":"default" }}>
-                      {ch.number}
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{ display:"flex", gap:10, marginBottom:12, fontSize:10, color:C.muted }}>
-                <span><span style={{ display:"inline-block", width:10, height:10, background:"#2D8B7A", borderRadius:2, marginRight:4 }}/>Written</span>
-                <span><span style={{ display:"inline-block", width:10, height:10, background:"#B07A1F", borderRadius:2, marginRight:4 }}/>Sag (medium)</span>
-                <span><span style={{ display:"inline-block", width:10, height:10, background:"#B8342D", borderRadius:2, marginRight:4 }}/>Sag (high)</span>
-              </div>
-              {(report.sagPoints||[]).map((s,i) => (
-                <div key={i} style={{ padding:"8px 12px", marginBottom:6, background:C.bg, border:"1px solid "+(s.severity==="high"?"#B8342D":"#B07A1F"), borderRadius:6 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                    <span style={{ color:C.text, fontSize:12, fontWeight:600 }}>Ch {(s.chapters||[]).join(", ")}</span>
-                    <span style={{ padding:"1px 6px", background:(s.severity==="high"?"#B8342D":"#B07A1F")+"22", border:"1px solid "+(s.severity==="high"?"#B8342D":"#B07A1F"), borderRadius:8, fontSize:9, color:s.severity==="high"?"#B8342D":"#B07A1F", fontWeight:700, textTransform:"uppercase" }}>{s.severity}</span>
-                  </div>
-                  <div style={{ color:C.muted, fontSize:11, marginBottom:3 }}>{s.issue}</div>
-                  <div style={{ color:C.gold, fontSize:11 }}>Fix: {s.fix}</div>
-                </div>
-              ))}
-              {(!report.sagPoints || report.sagPoints.length===0) && (<div style={{ color:"#2D8B7A", fontSize:12, fontStyle:"italic" }}>✓ No significant sag points detected.</div>)}
-            </div>
-          )}
-
-          {/* F — DROPOUT RISK */}
-          {report.dropoutRisk && report.dropoutRisk.length > 0 && (
-            <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
-              <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:10 }}>🚪 Dropout Risk</div>
-              {report.dropoutRisk.map((d,i) => {
-                const rColor = d.riskLevel==="high" ? "#B8342D" : d.riskLevel==="medium" ? "#B07A1F" : "#2D8B7A";
-                return (
-                  <div key={i} style={{ display:"flex", gap:12, alignItems:"flex-start", padding:"8px 0", borderBottom:i<report.dropoutRisk.length-1 ? "1px solid "+C.faint : "none" }}>
-                    <div style={{ minWidth:60, padding:"3px 8px", background:rColor+"22", border:"1px solid "+rColor, borderRadius:6, fontSize:10, color:rColor, fontWeight:700, textAlign:"center" }}>Ch {d.afterChapter}</div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ color:C.text, fontSize:12, marginBottom:3 }}>{d.reason}</div>
-                      <div style={{ color:C.gold, fontSize:11 }}>Fix: {d.fix}</div>
-                    </div>
-                    <span style={{ padding:"1px 6px", background:rColor+"22", border:"1px solid "+rColor, borderRadius:8, fontSize:9, color:rColor, fontWeight:700, textTransform:"uppercase", flexShrink:0 }}>{d.riskLevel}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* G — CHARACTER AUDIT */}
-          {report.characterAudit && report.characterAudit.length > 0 && (
-            <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
-              <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:12 }}>👤 Character Development Audit</div>
-              <div style={{ display:"grid", gap:8 }}>
-                {[...report.characterAudit].sort((a,b) => a.developmentScore - b.developmentScore).map((c,i) => (
-                  <div key={i} style={{ padding:"10px 14px", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:6 }}>
-                      <div>
-                        <span style={{ color:C.text, fontWeight:600, fontSize:13 }}>{c.name}</span>
-                        <span style={{ color:C.muted, fontSize:10, marginLeft:6, textTransform:"uppercase", letterSpacing:0.5 }}>{c.role}</span>
-                      </div>
-                      <span style={{ fontFamily:"Cormorant Garamond, serif", fontSize:18, fontWeight:700, color:scoreColor(c.developmentScore) }}>{c.developmentScore}/10</span>
-                    </div>
-                    <div style={{ height:4, background:C.faint, borderRadius:2, overflow:"hidden", marginBottom:8 }}>
-                      <div style={{ width:(c.developmentScore/10*100)+"%", height:"100%", background:scoreColor(c.developmentScore), borderRadius:2 }}/>
-                    </div>
-                    {c.issue && (<div style={{ color:C.muted, fontSize:11, marginBottom:3 }}>⚠ {c.issue}</div>)}
-                    {c.suggestion && (<div style={{ color:C.gold, fontSize:11 }}>Fix: {c.suggestion}</div>)}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* H — SUBPLOT RANKING */}
-          {report.subplotRanking && report.subplotRanking.length > 0 && (
-            <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
-              <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:10 }}>🧵 Subplot Ranking</div>
-              {[...report.subplotRanking].sort((a,b) => b.strength - a.strength).map((s,i) => {
-                const mColor = s.momentum==="building"?"#2D8B7A":s.momentum==="resolved"?"#6B665E":s.momentum==="dormant"?"#B8342D":"#B07A1F";
-                return (
-                  <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 0", borderBottom:i<report.subplotRanking.length-1?"1px solid "+C.faint:"none" }}>
-                    <span style={{ color:C.muted, fontSize:10, minWidth:14 }}>#{i+1}</span>
-                    <span style={{ flex:1, color:C.text, fontSize:12 }}>{s.subplot}</span>
-                    <span style={{ padding:"1px 7px", background:mColor+"22", border:"1px solid "+mColor, borderRadius:8, fontSize:9, color:mColor, fontWeight:700, textTransform:"uppercase" }}>{s.momentum}</span>
-                    <span style={{ color:scoreColor(s.strength), fontWeight:700, fontSize:12, minWidth:32, textAlign:"right" }}>{s.strength}/10</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* I — EDITOR NOTES */}
-          {report.editorNotes && report.editorNotes.length > 0 && (
-            <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
-              <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:12 }}>✏️ Editor Notes · Prioritized</div>
-              {[...report.editorNotes].sort((a,b) => a.priority.localeCompare(b.priority)).map((n,i) => {
-                const pColor = n.priority==="P1"?"#B8342D":n.priority==="P2"?C.amber:"#6B665E";
-                return (
-                  <div key={i} style={{ display:"flex", gap:10, alignItems:"flex-start", padding:"8px 0", borderBottom:i<report.editorNotes.length-1?"1px solid "+C.faint:"none" }}>
-                    <span style={{ padding:"2px 8px", background:pColor+"22", border:"1px solid "+pColor, borderRadius:6, fontSize:10, color:pColor, fontWeight:700, flexShrink:0 }}>{n.priority}</span>
-                    <div style={{ flex:1 }}>
-                      <span style={{ color:C.text, fontSize:12 }}>{n.chapter ? `Ch ${n.chapter} — ` : "Story-wide — "}{n.note}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* J — PLOT THREAD TRACKER */}
-          <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10 }}>
-            <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>🧵 Plot Thread Tracker</div>
-            <PlotThreadTracker bible={bible} currentChapterCount={Object.keys(chapterProse).filter(k=>chapterProse[k]).length} onAddManualThread={onAddManualThread}/>
-          </div>
-
-        </div>
-      )}
-
-      {!report && bible && (
-        <div style={{ padding:"18px 22px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:10, marginTop:14 }}>
-          <div style={{ color:C.amber, fontSize:11, letterSpacing:1.5, textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>🧵 Plot Thread Tracker</div>
-          <PlotThreadTracker bible={bible} currentChapterCount={Object.keys(chapterProse).filter(k=>chapterProse[k]).length} onAddManualThread={onAddManualThread}/>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── My Stories library (W2) ───────────────────────────────────
-// ── Story Concept input (New Story flow) ──────────────────────
 function StoryConceptInput({ value, onChange }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -8181,562 +7370,6 @@ function StoryConceptInput({ value, onChange }) {
 }
 
 // ── Import Existing Work flow ─────────────────────────────────
-const IMPORT_MODES = [
-  {
-    id: "concept",
-    icon: "💡",
-    label: "Story Concept",
-    desc: "You have an idea, synopsis, or creative notes. AI builds the full blueprint from your vision.",
-    inputLabel: "Paste your story concept, synopsis, character notes, or plot ideas"
-  },
-  {
-    id: "outline",
-    icon: "📋",
-    label: "Existing Outline",
-    desc: "You have a chapter-by-chapter outline in any format. AI converts it to Obsidian chapter cards.",
-    inputLabel: "Paste your outline — any format works (numbered list, prose, beat sheet, etc.)"
-  },
-  {
-    id: "prose",
-    icon: "📝",
-    label: "Written Chapters",
-    desc: "You've already written chapters and want to continue. AI reads your work, builds a Story Bible, and outlines the rest.",
-    inputLabel: "Paste your written chapters"
-  },
-  {
-    id: "mixed",
-    icon: "📚",
-    label: "Chapters + Outline",
-    desc: "You have written chapters AND an outline for the rest. AI extracts the bible from your prose and converts your outline.",
-    inputLabel: "Paste your written chapters first, then your outline"
-  }
-];
-
-function ImportStoryFlow({ onImportComplete, onCancel, universes, activeUniverseId }) {
-  const [step, setStep] = useState(1);           // 1=choose mode, 2=enter content, 3=configure, 4=processing
-  const [mode, setMode] = useState(null);
-  const [mainText, setMainText] = useState("");  // prose or outline text
-  const [outlineText, setOutlineText] = useState(""); // only for "mixed" mode
-  const [storyTitle, setStoryTitle] = useState("");
-  const [selectedPresetId, setSelectedPresetId] = useState("custom");
-  const [chaptersWritten, setChaptersWritten] = useState(0);
-  const [totalChapters, setTotalChapters] = useState(24);
-  const [targetWordCount, setTargetWordCount] = useState(80000);
-  const [loading, setLoading] = useState(false);
-  const [loadingMsg, setLoadingMsg] = useState("");
-  const [err, setErr] = useState("");
-
-  // File upload handler
-  const handleFileUpload = (e, setter) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setter(ev.target.result || "");
-    reader.readAsText(file);
-  };
-
-  const wordCount = (text) => text.trim().split(/\s+/).filter(Boolean).length;
-
-  const handleImport = async () => {
-    if (!storyTitle.trim()) {
-      setErr("Please enter a story title."); return;
-    }
-    if (!mainText.trim()) {
-      setErr("Please provide your story content."); return;
-    }
-
-    setLoading(true); setErr(""); setStep(4);
-
-    try {
-      let story = null;
-      let outline = null;
-      let bible = null;
-      let importedChapterProse = {};
-
-      if (mode === "concept") {
-        // Concept → full blueprint generation
-        setLoadingMsg("Building blueprint from your concept...");
-        story = await generateBlueprint({
-          laneVals: GENRE_PRESETS.find(p=>p.id===selectedPresetId)?.lanes ||
-            { ...DEFAULT_LANE_VALS },
-          tropes: GENRE_PRESETS.find(p=>p.id===selectedPresetId)?.tropes || [],
-          heat: GENRE_PRESETS.find(p=>p.id===selectedPresetId)?.heat || 3,
-          heroineArch: null, heroArch: null,
-          heroineWound: null, heroWound: null,
-          setting: null, city: null, family: null, intensity: 3,
-          externalConflict: null, relationshipObstacle: null, familyInfluence: 6,
-          spiceLevel: GENRE_PRESETS.find(p=>p.id===selectedPresetId)?.spiceLevel || 2,
-          romanceIntensity: GENRE_PRESETS.find(p=>p.id===selectedPresetId)?.romanceIntensity || DEFAULT_INTENSITY,
-          universe: null,
-          selectedPresetId,
-          userConcept: mainText,
-        });
-        story.spiceLevel = GENRE_PRESETS.find(p=>p.id===selectedPresetId)?.spiceLevel || 2;
-        story.romanceIntensity = GENRE_PRESETS.find(p=>p.id===selectedPresetId)?.romanceIntensity || DEFAULT_INTENSITY;
-        story.title = storyTitle || story.title;
-
-      } else if (mode === "outline") {
-        // Outline → minimal blueprint + chapter cards
-        setLoadingMsg("Reading your outline...");
-        // Create a minimal stub blueprint first
-        story = {
-          title: storyTitle,
-          tagline: "Imported story",
-          hook: "(Generated from imported outline)",
-          readerPromise: "",
-          heroine: { name:"(TBD)", age:"TBD", occupation:"TBD", wound:"TBD", externalGoal:"TBD" },
-          hero: { name:"(TBD)", age:"TBD", occupation:"TBD", wound:"TBD", externalGoal:"TBD" },
-          supporting:[], relationshipArc:[], wordCountTarget: targetWordCount + " words",
-          scores:{}, spiceLevel:3, romanceIntensity:DEFAULT_INTENSITY,
-          _importedOutline: true
-        };
-        setLoadingMsg("Converting your outline to chapter cards...");
-        outline = await generateOutlineFromImport(mainText, story, targetWordCount, totalChapters);
-
-      } else if (mode === "prose") {
-        // Prose → blueprint stub + bible + continuation outline
-        setLoadingMsg("Reading your chapters...");
-        // Minimal blueprint stub
-        story = {
-          title: storyTitle,
-          tagline: "Imported story",
-          hook: "(Extracted from imported chapters)",
-          readerPromise: "",
-          heroine: { name:"(extracting...)", age:"TBD", occupation:"TBD", wound:"TBD", externalGoal:"TBD" },
-          hero: { name:"(extracting...)", age:"TBD", occupation:"TBD", wound:"TBD", externalGoal:"TBD" },
-          supporting:[], relationshipArc:[], wordCountTarget: targetWordCount + " words",
-          scores:{}, spiceLevel:3, romanceIntensity:DEFAULT_INTENSITY,
-          _importedProse: true
-        };
-        setLoadingMsg("Extracting Story Bible from your chapters...");
-        bible = await generateBibleFromProse(mainText, story, chaptersWritten);
-
-        // Update story stub with extracted character info
-        if (bible.characters) {
-          const heroine = bible.characters.find(c => c.role === "heroine");
-          const hero = bible.characters.find(c => c.role === "hero");
-          if (heroine) story.heroine = { name:heroine.name, age:heroine.age, occupation:heroine.occupation, wound:heroine.wound, externalGoal:heroine.goals };
-          if (hero) story.hero = { name:hero.name, age:hero.age, occupation:hero.occupation, wound:hero.wound, externalGoal:hero.goals };
-        }
-        story.storyDNA = {
-          genreBlend: bible.world?.genre || "",
-          tone: bible.world?.tone || "",
-          heat: 3
-        };
-
-        setLoadingMsg("Generating continuation outline for remaining chapters...");
-        const continuationResult = await generateContinuationOutline(
-          story, bible, chaptersWritten, totalChapters, targetWordCount
-        );
-
-        // Build the full outline: placeholder entries for written chapters
-        // + real cards for continuation
-        const writtenPlaceholders = Array.from({length: chaptersWritten}, (_, i) => ({
-          number: i + 1,
-          title: "Chapter " + (i + 1) + " (imported)",
-          pov: "heroine",
-          scene: "(already written)",
-          beat: "(already written)",
-          arcStage: "Imported",
-          targetWordCount: Math.round(targetWordCount / totalChapters),
-          cliffhangerOrTurn: "",
-          continuityNotes: "Chapter imported from author's existing manuscript",
-        }));
-        const continuationChapters = (continuationResult.chapters || []).map(ch => ({
-          ...ch,
-          number: ch.number || (chaptersWritten + continuationResult.chapters.indexOf(ch) + 1)
-        }));
-        outline = { chapters: [...writtenPlaceholders, ...continuationChapters] };
-
-        // Store imported prose in chapterProse keyed by chapter number
-        // Split by common chapter markers if possible
-        const chapterBlocks = mainText.split(/\n(?=chapter\s+\d+|\bch[.]\s*\d+)/i);
-        if (chapterBlocks.length > 1) {
-          chapterBlocks.forEach((block, idx) => {
-            if (block.trim()) importedChapterProse[idx + 1] = block.trim();
-          });
-        } else {
-          // Can't split — store all as chapter 1
-          importedChapterProse[1] = mainText;
-        }
-
-      } else if (mode === "mixed") {
-        // Prose + outline → bible from prose + convert outline for remainder
-        setLoadingMsg("Extracting Story Bible from your chapters...");
-        story = {
-          title: storyTitle,
-          tagline: "Imported story",
-          hook: "(Imported)",
-          readerPromise: "",
-          heroine: { name:"(extracting...)", age:"TBD", occupation:"TBD", wound:"TBD", externalGoal:"TBD" },
-          hero: { name:"(extracting...)", age:"TBD", occupation:"TBD", wound:"TBD", externalGoal:"TBD" },
-          supporting:[], relationshipArc:[], wordCountTarget: targetWordCount + " words",
-          scores:{}, spiceLevel:3, romanceIntensity:DEFAULT_INTENSITY,
-        };
-        bible = await generateBibleFromProse(mainText, story, chaptersWritten);
-        if (bible.characters) {
-          const heroine = bible.characters.find(c => c.role === "heroine");
-          const hero = bible.characters.find(c => c.role === "hero");
-          if (heroine) story.heroine = { name:heroine.name, age:heroine.age, occupation:heroine.occupation, wound:heroine.wound, externalGoal:heroine.goals };
-          if (hero) story.hero = { name:hero.name, age:hero.age, occupation:hero.occupation, wound:hero.wound, externalGoal:hero.goals };
-        }
-        setLoadingMsg("Converting your outline for remaining chapters...");
-        const convertedOutline = await generateOutlineFromImport(
-          outlineText, story, targetWordCount, totalChapters - chaptersWritten
-        );
-        const writtenPlaceholders = Array.from({length: chaptersWritten}, (_, i) => ({
-          number: i + 1, title:"Chapter "+(i+1)+" (imported)", pov:"heroine",
-          scene:"(already written)", beat:"(already written)", arcStage:"Imported",
-          targetWordCount: Math.round(targetWordCount/totalChapters),
-          cliffhangerOrTurn:"", continuityNotes:"Imported from author's manuscript",
-        }));
-        outline = { chapters: [...writtenPlaceholders, ...(convertedOutline.chapters||[])] };
-
-        const chapterBlocks = mainText.split(/\n(?=chapter\s+\d+|\bch[.]\s*\d+)/i);
-        if (chapterBlocks.length > 1) {
-          chapterBlocks.forEach((block, idx) => {
-            if (block.trim()) importedChapterProse[idx + 1] = block.trim();
-          });
-        } else {
-          importedChapterProse[1] = mainText;
-        }
-      }
-
-      // Register story entities in global registry
-      const reg = loadGlobalRegistry();
-      const newReg = registerStoryEntities(reg, story);
-      saveGlobalRegistry(newReg);
-
-      // Call the import complete handler with all extracted data
-      onImportComplete({
-        story,
-        outline: outline || null,
-        bible: bible || null,
-        chapterProse: importedChapterProse,
-        bibleLocked: !!bible,
-        storyDNALocked: !!story.storyDNA,
-      });
-
-    } catch(e) {
-      setErr(e.message);
-      setLoading(false);
-      setStep(3);
-    }
-  };
-
-  // ── STEP 1: Choose mode ──
-  if (step === 1) return (
-    <div style={{ padding:"28px 30px", background:C.surface,
-                  border:"1px solid "+C.gold, borderRadius:14 }}>
-      <div style={{ color:C.gold, fontSize:11, letterSpacing:2,
-                    textTransform:"uppercase", fontWeight:700,
-                    marginBottom:4 }}>
-        Import Existing Work
-      </div>
-      <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif",
-                    fontSize:26, fontWeight:600, marginBottom:6 }}>
-        What are you bringing in?
-      </div>
-      <div style={{ color:C.muted, fontSize:13, marginBottom:22 }}>
-        Bring your existing work into Obsidian Story OS.
-        The tool will meet you wherever you are.
-      </div>
-      <div style={{ display:"grid", gap:10 }}>
-        {IMPORT_MODES.map(m => (
-          <button key={m.id} onClick={() => { setMode(m.id); setStep(2); }}
-            style={{ textAlign:"left", padding:"16px 18px",
-                     background: mode===m.id ? C.glow : "transparent",
-                     border:"1px solid "+(mode===m.id ? C.gold : C.borderLight),
-                     borderRadius:10, cursor:"pointer", transition:"all 0.15s" }}>
-            <div style={{ display:"flex", alignItems:"baseline", gap:10,
-                          marginBottom:5 }}>
-              <span style={{ fontSize:18 }}>{m.icon}</span>
-              <span style={{ color:C.text, fontWeight:600,
-                             fontSize:15 }}>{m.label}</span>
-            </div>
-            <div style={{ color:C.muted, fontSize:12,
-                          lineHeight:1.5 }}>{m.desc}</div>
-          </button>
-        ))}
-      </div>
-      <button onClick={onCancel}
-        style={{ marginTop:16, background:"transparent", border:"none",
-                 color:C.muted, fontSize:12, cursor:"pointer",
-                 textDecoration:"underline" }}>
-        Cancel
-      </button>
-    </div>
-  );
-
-  // ── STEP 2: Enter content ──
-  if (step === 2) {
-    const modeConfig = IMPORT_MODES.find(m => m.id === mode);
-    return (
-      <div style={{ padding:"28px 30px", background:C.surface,
-                    border:"1px solid "+C.gold, borderRadius:14 }}>
-        <button onClick={() => setStep(1)}
-          style={{ background:"transparent", border:"none",
-                   color:C.muted, fontSize:12, cursor:"pointer",
-                   marginBottom:18, textDecoration:"underline" }}>
-          ← Back
-        </button>
-        <div style={{ color:C.gold, fontSize:11, letterSpacing:2,
-                      textTransform:"uppercase", fontWeight:700,
-                      marginBottom:4 }}>
-          {modeConfig.icon} {modeConfig.label}
-        </div>
-
-        {/* Story title */}
-        <div style={{ marginBottom:18 }}>
-          <label style={{ display:"block", color:C.amber, fontSize:11,
-                          letterSpacing:1, textTransform:"uppercase",
-                          marginBottom:6, fontWeight:600 }}>
-            Story Title
-          </label>
-          <input value={storyTitle}
-            onChange={e => setStoryTitle(e.target.value)}
-            placeholder="Your story's title..."
-            style={{ width:"100%", padding:"10px 12px", background:C.card,
-                     color:C.text, border:"1px solid "+C.border,
-                     borderRadius:8, fontSize:14, fontFamily:"Nunito, sans-serif",
-                     boxSizing:"border-box" }}/>
-        </div>
-
-        {/* Main text input */}
-        <div style={{ marginBottom:14 }}>
-          <div style={{ display:"flex", justifyContent:"space-between",
-                        alignItems:"baseline", marginBottom:6 }}>
-            <label style={{ color:C.amber, fontSize:11, letterSpacing:1,
-                            textTransform:"uppercase", fontWeight:600 }}>
-              {modeConfig.inputLabel}
-            </label>
-            <label style={{ padding:"4px 10px", background:C.card,
-                            border:"1px solid "+C.borderLight,
-                            borderRadius:5, fontSize:10, color:C.muted,
-                            cursor:"pointer" }}>
-              📎 Upload .txt or .md
-              <input type="file" accept=".txt,.md"
-                onChange={e => handleFileUpload(e, setMainText)}
-                style={{ display:"none" }}/>
-            </label>
-          </div>
-          <textarea value={mainText} onChange={e => setMainText(e.target.value)}
-            rows={12}
-            placeholder={mode==="concept"
-              ? "Describe your story idea in your own words. Characters, premise, conflict, setting, tone — whatever you have..."
-              : mode==="outline"
-              ? "Chapter 1: ...\nChapter 2: ...\n\n(Any format works — numbered lists, prose beats, bullet points, etc.)"
-              : mode==="prose" || mode==="mixed"
-              ? "Paste your written chapters here. Chapter breaks don't need to be specially formatted..."
-              : ""}
-            style={{ width:"100%", padding:"12px 14px", background:C.card,
-                     color:C.text, border:"1px solid "+C.border,
-                     borderRadius:8, fontSize:12, lineHeight:1.7,
-                     fontFamily: mode==="prose"||mode==="mixed"
-                       ? "Cormorant Garamond, serif" : "Nunito, sans-serif",
-                     resize:"vertical", boxSizing:"border-box" }}/>
-          <div style={{ color:C.muted, fontSize:11, marginTop:4 }}>
-            {wordCount(mainText).toLocaleString()} words pasted
-          </div>
-        </div>
-
-        {/* Second input for "mixed" mode */}
-        {mode === "mixed" && (
-          <div style={{ marginBottom:14 }}>
-            <div style={{ display:"flex", justifyContent:"space-between",
-                          alignItems:"baseline", marginBottom:6 }}>
-              <label style={{ color:C.amber, fontSize:11, letterSpacing:1,
-                              textTransform:"uppercase", fontWeight:600 }}>
-                Your Outline for Remaining Chapters
-              </label>
-              <label style={{ padding:"4px 10px", background:C.card,
-                              border:"1px solid "+C.borderLight,
-                              borderRadius:5, fontSize:10, color:C.muted,
-                              cursor:"pointer" }}>
-                📎 Upload
-                <input type="file" accept=".txt,.md"
-                  onChange={e => handleFileUpload(e, setOutlineText)}
-                  style={{ display:"none" }}/>
-              </label>
-            </div>
-            <textarea value={outlineText}
-              onChange={e => setOutlineText(e.target.value)}
-              rows={8}
-              placeholder="Paste your outline for chapters you HAVEN'T written yet..."
-              style={{ width:"100%", padding:"12px 14px", background:C.card,
-                       color:C.text, border:"1px solid "+C.border,
-                       borderRadius:8, fontSize:12, lineHeight:1.7,
-                       fontFamily:"Nunito, sans-serif", resize:"vertical",
-                       boxSizing:"border-box" }}/>
-          </div>
-        )}
-
-        <button onClick={() => setStep(3)} disabled={!mainText.trim()||!storyTitle.trim()}
-          style={{ padding:"10px 20px",
-                   background:mainText.trim()&&storyTitle.trim() ? C.gold : C.faint,
-                   color:mainText.trim()&&storyTitle.trim() ? C.bg : C.muted,
-                   border:"none", borderRadius:8, fontWeight:700, fontSize:13,
-                   cursor:mainText.trim()&&storyTitle.trim()?"pointer":"not-allowed",
-                   fontFamily:"Nunito, sans-serif" }}>
-          Continue →
-        </button>
-      </div>
-    );
-  }
-
-  // ── STEP 3: Configure ──
-  if (step === 3) return (
-    <div style={{ padding:"28px 30px", background:C.surface,
-                  border:"1px solid "+C.gold, borderRadius:14 }}>
-      <button onClick={() => setStep(2)}
-        style={{ background:"transparent", border:"none",
-                 color:C.muted, fontSize:12, cursor:"pointer",
-                 marginBottom:18, textDecoration:"underline" }}>
-        ← Back
-      </button>
-      <div style={{ color:C.gold, fontSize:11, letterSpacing:2,
-                    textTransform:"uppercase", fontWeight:700,
-                    marginBottom:14 }}>
-        Configure Import
-      </div>
-
-      {err && (
-        <div style={{ padding:"10px 14px", background:"#FBE9E7",
-                      border:"1px solid #B8342D", borderRadius:6,
-                      color:"#B8342D", fontSize:12, marginBottom:14 }}>
-          ⚠ {err}
-        </div>
-      )}
-
-      {/* Genre preset */}
-      <div style={{ marginBottom:18 }}>
-        <label style={{ display:"block", color:C.amber, fontSize:11,
-                        letterSpacing:1, textTransform:"uppercase",
-                        marginBottom:8, fontWeight:600 }}>
-          Genre (for market positioning)
-        </label>
-        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-          {GENRE_PRESETS.map(p => (
-            <button key={p.id} onClick={() => setSelectedPresetId(p.id)}
-              style={{ padding:"6px 12px", borderRadius:16,
-                       background:selectedPresetId===p.id ? C.gold : "transparent",
-                       color:selectedPresetId===p.id ? C.bg : C.text,
-                       border:"1px solid "+(selectedPresetId===p.id
-                         ? C.gold : C.borderLight),
-                       fontSize:12, cursor:"pointer",
-                       fontFamily:"Nunito, sans-serif" }}>
-              {p.icon} {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Chapters written (prose/mixed modes) */}
-      {(mode==="prose" || mode==="mixed") && (
-        <div style={{ marginBottom:18 }}>
-          <label style={{ display:"block", color:C.amber, fontSize:11,
-                          letterSpacing:1, textTransform:"uppercase",
-                          marginBottom:6, fontWeight:600 }}>
-            How many chapters have you written?
-          </label>
-          <input type="number" min={1} max={100}
-            value={chaptersWritten}
-            onChange={e => setChaptersWritten(Math.max(1, +e.target.value))}
-            style={{ width:80, padding:"8px 10px", background:C.card,
-                     color:C.text, border:"1px solid "+C.border,
-                     borderRadius:6, fontSize:14,
-                     fontFamily:"Nunito, sans-serif" }}/>
-        </div>
-      )}
-
-      {/* Total chapters */}
-      <div style={{ marginBottom:18 }}>
-        <label style={{ display:"block", color:C.amber, fontSize:11,
-                        letterSpacing:1, textTransform:"uppercase",
-                        marginBottom:6, fontWeight:600 }}>
-          Total chapters planned
-        </label>
-        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-          {[18, 24, 30, 36, 42].map(n => (
-            <button key={n} onClick={() => setTotalChapters(n)}
-              style={{ padding:"6px 12px", borderRadius:14,
-                       background:totalChapters===n ? C.amber : "transparent",
-                       color:totalChapters===n ? C.bg : C.text,
-                       border:"1px solid "+(totalChapters===n
-                         ? C.amber : C.borderLight),
-                       fontSize:12, cursor:"pointer",
-                       fontFamily:"Nunito, sans-serif" }}>
-              {n}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Target word count */}
-      <div style={{ marginBottom:22 }}>
-        <label style={{ display:"block", color:C.amber, fontSize:11,
-                        letterSpacing:1, textTransform:"uppercase",
-                        marginBottom:6, fontWeight:600 }}>
-          Target word count
-        </label>
-        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-          {[60000, 80000, 90000, 100000].map(n => (
-            <button key={n} onClick={() => setTargetWordCount(n)}
-              style={{ padding:"6px 12px", borderRadius:14,
-                       background:targetWordCount===n ? C.amber : "transparent",
-                       color:targetWordCount===n ? C.bg : C.text,
-                       border:"1px solid "+(targetWordCount===n
-                         ? C.amber : C.borderLight),
-                       fontSize:12, cursor:"pointer",
-                       fontFamily:"Nunito, sans-serif" }}>
-              {(n/1000)+"K"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ display:"flex", gap:10 }}>
-        <button onClick={handleImport}
-          style={{ padding:"12px 24px",
-                   background:"linear-gradient(135deg,"+C.gold+","+C.amber+")",
-                   color:C.bg, border:"none", borderRadius:8, fontWeight:700,
-                   fontSize:14, cursor:"pointer",
-                   fontFamily:"Nunito, sans-serif" }}>
-          {mode==="concept" ? "⚡ Build Blueprint from Concept"
-           : mode==="outline" ? "📋 Import & Convert Outline"
-           : mode==="prose" ? "📝 Import Chapters & Continue"
-           : "📚 Import Everything"}
-        </button>
-        <button onClick={onCancel}
-          style={{ padding:"12px 18px", background:"transparent",
-                   color:C.muted, border:"1px solid "+C.borderLight,
-                   borderRadius:8, fontWeight:600, fontSize:13,
-                   cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-
-  // ── STEP 4: Loading ──
-  return (
-    <div style={{ padding:"40px 30px", background:C.surface,
-                  border:"1px solid "+C.gold, borderRadius:14,
-                  textAlign:"center" }}>
-      <div style={{ fontSize:40, marginBottom:16 }}>
-        {mode==="concept"?"💡":mode==="outline"?"📋":mode==="prose"?"📝":"📚"}
-      </div>
-      <div style={{ color:C.gold, fontFamily:"Cormorant Garamond, serif",
-                    fontSize:22, fontWeight:600, marginBottom:8 }}>
-        {loadingMsg || "Importing your work..."}
-      </div>
-      <div style={{ color:C.muted, fontSize:12 }}>
-        This may take 30-60 seconds
-      </div>
-    </div>
-  );
-}
-
 function MyStories({ stories, activeStoryId, onOpen, onDuplicate, onDelete, onImport, onImportExisting }) {
   const fileRef = useRef(null);
   const sorted = [...stories].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
@@ -9517,16 +8150,18 @@ export default function App() {
           <>
             {/* PUBLISHING STUDIO routing */}
             {activeSection === "publishingStudio" && story && (
-              <PublishingStudio
-                story={story}
-                outline={null}
-                bible={null}
-                packageData={bookPackage}
-                generating={generatingPackage}
-                progress={packageProgress}
-                onGenerate={()=>generatePublishingPackage(null, null)}
-                onExport={exportPublishingPackage}
-                error={packageErr}/>
+              <Suspense fallback={<GlassLoadingFallback label="Loading Publishing Studio..." />}>
+                <PublishingPanelLazy
+                  story={story}
+                  outline={null}
+                  bible={null}
+                  packageData={bookPackage}
+                  generating={generatingPackage}
+                  progress={packageProgress}
+                  onGenerate={()=>generatePublishingPackage(null, null)}
+                  onExport={exportPublishingPackage}
+                  error={packageErr}/>
+              </Suspense>
             )}
             {activeSection === "publishingStudio" && !story && (
               <NeedsStoryEmpty section="Publishing Studio" onGoToBuilder={()=>goToSection("newStory")}/>
@@ -9566,16 +8201,18 @@ export default function App() {
                     {story.seriesPotential && <InfoBlock label="Series Potential">{story.seriesPotential}</InfoBlock>}
                     {story.wordCountTarget && <InfoBlock label="Word Count Target">{story.wordCountTarget}</InfoBlock>}
                   </div>
-                  <PublishingStudio
-                    story={story}
-                    outline={null}
-                    bible={null}
-                    packageData={bookPackage}
-                    generating={generatingPackage}
-                    progress={packageProgress}
-                    onGenerate={()=>generatePublishingPackage(null, null)}
-                    onExport={exportPublishingPackage}
-                    error={packageErr}/>
+                  <Suspense fallback={<GlassLoadingFallback label="Loading Publishing Studio..." />}>
+                    <PublishingPanelLazy
+                      story={story}
+                      outline={null}
+                      bible={null}
+                      packageData={bookPackage}
+                      generating={generatingPackage}
+                      progress={packageProgress}
+                      onGenerate={()=>generatePublishingPackage(null, null)}
+                      onExport={exportPublishingPackage}
+                      error={packageErr}/>
+                  </Suspense>
                 </div>
               ) : (
                 <NeedsStoryEmpty section="Market Intelligence" onGoToBuilder={()=>goToSection("newStory")}/>
@@ -9592,11 +8229,23 @@ export default function App() {
             {/* MY STORIES library */}
             {activeSection === "myStories" && (
               showingImport ? (
-                <ImportStoryFlow
-                  onImportComplete={handleImportComplete}
-                  onCancel={()=>setShowingImport(false)}
-                  universes={universes}
-                  activeUniverseId={activeUniverseId}/>
+                <Suspense fallback={<GlassLoadingFallback label="Loading Import..." />}>
+                  <ImportStoryLazy
+                    onImportComplete={handleImportComplete}
+                    onCancel={()=>setShowingImport(false)}
+                    universes={universes}
+                    activeUniverseId={activeUniverseId}
+                    genrePresets={GENRE_PRESETS}
+                    defaultLaneVals={DEFAULT_LANE_VALS}
+                    defaultIntensity={DEFAULT_INTENSITY}
+                    onGenerateBlueprint={generateBlueprint}
+                    onGenerateOutlineFromImport={generateOutlineFromImport}
+                    onGenerateBibleFromProse={generateBibleFromProse}
+                    onGenerateContinuationOutline={generateContinuationOutline}
+                    onLoadGlobalRegistry={loadGlobalRegistry}
+                    onRegisterStoryEntities={registerStoryEntities}
+                    onSaveGlobalRegistry={saveGlobalRegistry}/>
+                </Suspense>
               ) : (
                 <MyStories
                   stories={stories}
@@ -9612,12 +8261,14 @@ export default function App() {
             {/* EDITOR MODE dashboard (Story Intelligence Layer) */}
             {activeSection === "editorMode" && (
               story ? (
-                <EditorModeDashboard
-                  story={story} outline={outline} bible={bible}
-                  chapterProse={chapterProse} chapterSummaries={chapterSummaries}
-                  report={storyHealthReport} analyzing={analyzingHealth}
-                  timestamp={healthAnalysisTimestamp} error={healthAnalysisErr}
-                  onRunAnalysis={runStoryAnalysis} onAddManualThread={addManualThreadApp}/>
+                <Suspense fallback={<GlassLoadingFallback label="Loading Editor..." />}>
+                  <EditorModeDashboardLazy
+                    story={story} outline={outline} bible={bible}
+                    chapterProse={chapterProse} chapterSummaries={chapterSummaries}
+                    report={storyHealthReport} analyzing={analyzingHealth}
+                    timestamp={healthAnalysisTimestamp} error={healthAnalysisErr}
+                    onRunAnalysis={runStoryAnalysis} onAddManualThread={addManualThreadApp}/>
+                </Suspense>
               ) : (
                 <NeedsStoryEmpty section="Editor Mode" onGoToBuilder={()=>goToSection("newStory")}/>
               )
