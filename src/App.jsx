@@ -1648,7 +1648,7 @@ const SYS_CHAPTER = "You are a Black romance novelist writing in the style of Ke
 async function generateBlueprint(opts) {
   const { laneVals, tropes, heat, heroineArch, heroArch, heroineWound, heroWound,
           setting, city, family, intensity, externalConflict, relationshipObstacle,
-          familyInfluence, spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng, universe } = opts;
+          familyInfluence, spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng, universe, userConcept } = opts;
   const norm = normalize(laneVals);
   const blend = LANES.filter(l=>norm[l.id]>0).map(l=>l.label+": "+norm[l.id]+"%").join(", ");
 
@@ -1909,8 +1909,20 @@ async function generateBlueprint(opts) {
   else { castSize = 5; castCtx = "maximum family influence — the family is practically a co-protagonist. Many bestselling Black romances are 9-10 here. Readers fall in love with the aunties, cousins, grandparents, and community as much as the couple."; }
   const familyInfCtx = "\nFAMILY INFLUENCE SCORE: "+famInf+"/10 ("+castCtx+"). Supporting cast must have at least "+castSize+" named characters with clear roles and emotional purpose to the couple's arc.";
 
+  // ── Author's Story Concept (Import & Continue) — prepended to call1 ──
+  const conceptBlock = (userConcept && userConcept.trim())
+    ? "AUTHOR'S STORY CONCEPT — BUILD FROM THIS, DO NOT INVENT A DIFFERENT STORY:\n" +
+      userConcept +
+      "\n\nHonor this concept faithfully. Extract characters, premise, setting, " +
+      "and emotional core from the author's vision. Fill gaps intelligently " +
+      "using the genre blend and market patterns below, but stay true to " +
+      "what the author has described. If the author named characters, use " +
+      "those names. If they described a wound or conflict, use it.\n"
+    : "";
+
   // ── CALL 1: Core story ──
   const call1 = [
+    conceptBlock,
     "Build a Black romance story concept rooted in the STORY ENGINE TRIANGLE: Trope + Internal Wound + External Conflict + Relationship Obstacle. The bestselling books integrate all four — weak AI-generated romance only does tropes.",
     "Story blend: "+blend,
     "Tropes: "+tropes.join(", "),
@@ -3046,6 +3058,139 @@ async function generateBookLaunchPackage(story, outline, bible, onProgress) {
   if (onProgress) onProgress("Generating marketing assets, adaptation, readiness score...");
   const part3 = await generatePackagePart3(story, outline, bible, part1.positioning);
   return { ...part1, ...part2, ...part3 };
+}
+
+// ── Import & Continue: convert an author's existing outline to chapter cards ──
+async function generateOutlineFromImport(rawOutlineText, story, targetWordCount, chapterCount) {
+  const avgWords = Math.round((targetWordCount||80000) / (chapterCount||24));
+
+  const user = [
+    "Convert this author's existing outline into the Obsidian chapter card format.",
+    "Honor the author's structure and content exactly — do not rewrite or reorder.",
+    "Fill in any missing structural fields by inferring from context.",
+    "",
+    "BOOK: " + story.title,
+    story.heroine ? "HEROINE: " + story.heroine.name + " — " + story.heroine.occupation : "",
+    story.hero ? "HERO: " + story.hero.name + " — " + story.hero.occupation : "",
+    story.storyDNA ? "GENRE/TONE: " + story.storyDNA.genreBlend + " · " + story.storyDNA.tone : "",
+    story.relationshipArc ? "RELATIONSHIP ARC: " + (story.relationshipArc||[]).join(" → ") : "",
+    "",
+    "AUTHOR'S OUTLINE (convert this — do not change the story):",
+    rawOutlineText,
+    "",
+    "Return a compact JSON object with key 'chapters' = array of chapter card objects.",
+    "Each chapter card must have these keys:",
+    "number (integer, sequential from 1),",
+    "title (max 5 words — from the outline if given, else infer),",
+    "pov (heroine | hero | character name — infer from outline),",
+    "scene (1 sentence max 16 words — physical setting + situation),",
+    "beat (1 sentence max 18 words — emotional purpose of this chapter),",
+    "arcStage (which relationship arc stage this serves),",
+    "targetWordCount (integer — vary around " + avgWords + ", range " +
+      Math.round(avgWords*0.8) + "-" + Math.round(avgWords*1.2) + "),",
+    "cliffhangerOrTurn (1 phrase max 12 words — chapter-end hook),",
+    "continuityNotes (1 phrase max 14 words — what must carry forward)"
+  ].filter(Boolean).join("\n");
+
+  const tokenBudget = Math.max(4500, Math.ceil(rawOutlineText.length / 8) + 2000);
+  return await apiCallJSON(SYS_STORY, user, Math.min(8000, tokenBudget));
+}
+
+// ── Import & Continue: extract a Story Bible from an author's existing prose ──
+async function generateBibleFromProse(proseText, story, chapterCount) {
+  // Analyze existing prose to extract a Story Bible
+  // Cap prose to avoid token overflow — take first 8000 chars + last 2000
+  const cap = 8000;
+  const tail = 2000;
+  const sampledProse = proseText.length > cap + tail
+    ? proseText.slice(0, cap) + "\n\n[...middle omitted...]\n\n" + proseText.slice(-tail)
+    : proseText;
+
+  const user = [
+    "Analyze this author's existing prose and extract a complete Story Bible.",
+    "The author has written some chapters already and wants to continue.",
+    "Build the bible from what's ACTUALLY in the prose — do not invent.",
+    "If something isn't in the prose, mark it as 'not yet established'.",
+    "",
+    "BOOK: " + story.title,
+    "CHAPTERS WRITTEN: approximately " + chapterCount,
+    "",
+    "EXISTING PROSE:",
+    sampledProse,
+    "",
+    "Return a compact JSON object matching this exact Story Bible structure:",
+    "world: { genre (max 5 words), themes (array of 3-5 strings), setting (max 12 words), tone (max 14 words), timeline (max 12 words) }",
+    "characters: array — extract ALL characters who appear in the prose.",
+    "  Each: name, role (heroine|hero|supporting), age (or 'unknown'), appearance (max 18 words from prose), occupation, wound (infer from behavior/internal thoughts), goals (from prose), fears (infer), family (from prose), relationships (from prose), speechPatterns (from dialogue — how do they actually speak?)",
+    "relationship: { beginningState (max 12 words — how they started), currentState (max 12 words — where they are at the END of the written prose), desiredEndState (infer from genre/tropes), obstacle (from prose), milestones (array of { chapter, event } for milestones already reached) }",
+    "plot: { mainConflict (1 sentence), subplots (array of 2-4 strings from prose), mysteries (array of { name, status } for open questions raised so far), secrets (array of { owner, secret, revealedIn } — secrets established in the prose), clues (array of { chapter, clue, payoff } for setups planted), reveals (empty array — these are future) }",
+    "chapters: array — for each chapter in the prose, create: { number, pov, purpose (max 14 words), majorEvents (array of 2-4 strings), characterChanges (array of 0-3 strings), unresolvedThreads (array of 1-3 strings carrying forward) }"
+  ].filter(Boolean).join("\n");
+
+  return await apiCallJSON(SYS_BIBLE, user, 4500);
+}
+
+// ── Import & Continue: outline the remaining chapters from the bible snapshot ──
+async function generateContinuationOutline(story, bible, writtenChapterCount,
+                                            totalChapterCount, targetWordCount) {
+  const remainingChapters = totalChapterCount - writtenChapterCount;
+  if (remainingChapters <= 0) throw new Error("No remaining chapters to outline.");
+
+  const avgWords = Math.round((targetWordCount||80000) / totalChapterCount);
+
+  // Bible snapshot
+  const charLines = (bible.characters||[]).map(c =>
+    c.name + " (" + c.role + "): wound=" + c.wound + ", speech=" + c.speechPatterns
+  ).join(" | ");
+  const openMysteries = (bible.plot?.mysteries||[]).filter(m=>m.status!=="resolved")
+    .map(m=>m.name).join(", ");
+  const unresolvedSecrets = (bible.plot?.secrets||[]).filter(s=>!s.revealedIn)
+    .map(s=>s.owner+": "+s.secret).join(" | ");
+  const subplots = (bible.plot?.subplots||[]).join(", ");
+
+  // What's happened so far
+  const chapterHistory = (bible.chapters||[]).map(c =>
+    "Ch" + c.number + ": " + (c.majorEvents||[]).join("; ") +
+    (c.unresolvedThreads?.length ? " → open: " + c.unresolvedThreads.join("; ") : "")
+  ).join(" || ");
+
+  const user = [
+    "Generate the continuation outline for the REMAINING " + remainingChapters +
+    " chapters of this novel.",
+    "The author has already written chapters 1-" + writtenChapterCount + ".",
+    "Pick up EXACTLY where the story left off. Do not rewrite or recap what's done.",
+    "",
+    "BOOK: " + story.title,
+    "READER PROMISE: " + (story.readerPromise||""),
+    "RELATIONSHIP ARC: " + (story.relationshipArc||[]).join(" → "),
+    story.externalConflictSummary ? "EXTERNAL CONFLICT: " + story.externalConflictSummary : "",
+    story.relationshipObstacleSummary ? "RELATIONSHIP OBSTACLE: " + story.relationshipObstacleSummary : "",
+    "",
+    "STORY BIBLE SNAPSHOT:",
+    "Characters: " + charLines,
+    "Relationship NOW (end of Ch" + writtenChapterCount + "): " +
+      (bible.relationship?.currentState||"unknown"),
+    "Desired end state: " + (bible.relationship?.desiredEndState||"HEA"),
+    openMysteries ? "Open mysteries: " + openMysteries : "",
+    unresolvedSecrets ? "Unrevealed secrets: " + unresolvedSecrets : "",
+    subplots ? "Active subplots: " + subplots : "",
+    "",
+    "WHAT HAS HAPPENED (Ch1-" + writtenChapterCount + "):",
+    chapterHistory,
+    "",
+    "Generate exactly " + remainingChapters + " chapter cards " +
+    "(chapters " + (writtenChapterCount+1) + " through " + totalChapterCount + ").",
+    "Map remaining arc stages proportionally.",
+    "Resolve all open mysteries and secrets before the final chapter.",
+    "Land the relationship arc at the desired end state.",
+    "",
+    "Return JSON with key 'chapters' = array of EXACTLY " + remainingChapters +
+    " chapter card objects with keys:",
+    "number, title (max 5 words), pov (heroine|hero|character name), scene (1 sentence max 16 words), beat (1 sentence max 18 words), arcStage (which of the 7 arc stages), targetWordCount (integer near " + avgWords + "), cliffhangerOrTurn (1 phrase max 12 words), continuityNotes (1 phrase max 14 words)"
+  ].filter(Boolean).join("\n");
+
+  const tokenBudget = Math.max(4500, remainingChapters * 250);
+  return await apiCallJSON(SYS_STORY, user, Math.min(8000, tokenBudget));
 }
 
 async function writeChapterProse(story, outline, chapterNum, universe, bible, opts) {
@@ -7737,7 +7882,629 @@ function EditorModeDashboard({ story, outline, bible, chapterProse,
 }
 
 // ── My Stories library (W2) ───────────────────────────────────
-function MyStories({ stories, activeStoryId, onOpen, onDuplicate, onDelete, onImport }) {
+// ── Story Concept input (New Story flow) ──────────────────────
+function StoryConceptInput({ value, onChange }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div style={{ padding:"20px 24px", background:C.surface,
+                  border:"1px solid "+C.border, borderRadius:12,
+                  marginBottom:18 }}>
+      <div style={{ display:"flex", justifyContent:"space-between",
+                    alignItems:"baseline", marginBottom: expanded ? 12 : 0 }}>
+        <div>
+          <div style={{ color:C.gold, fontSize:11, letterSpacing:2,
+                        textTransform:"uppercase", fontWeight:700,
+                        marginBottom:3 }}>
+            Story Concept <span style={{ color:C.muted, fontWeight:400,
+                                         textTransform:"none", letterSpacing:0 }}>
+              · optional
+            </span>
+          </div>
+          <div style={{ color:C.muted, fontSize:12 }}>
+            {value.trim()
+              ? `${value.trim().slice(0,60)}${value.trim().length>60?"...":""}`
+              : "Have an idea? Describe it and the AI builds from your vision."}
+          </div>
+        </div>
+        <button onClick={() => setExpanded(!expanded)}
+          style={{ background:"transparent", border:"none",
+                   color:C.gold, fontSize:20, cursor:"pointer",
+                   padding:"0 4px" }}>
+          {expanded ? "−" : "+"}
+        </button>
+      </div>
+      {expanded && (
+        <div>
+          <textarea
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            placeholder={`Describe your story idea in your own words. Can be a paragraph or several pages. Examples:\n\n"A burned-out CHRO at a healthcare company falls for the new head of security during a hostile takeover. She's spent 15 years climbing — he's spent 15 years protecting other people. Neither knows how to be vulnerable..."\n\nOr paste a full synopsis, character sketches, plot notes, anything you have.`}
+            rows={8}
+            style={{ width:"100%", padding:"12px 14px", background:C.card,
+                     color:C.text, border:"1px solid "+C.border,
+                     borderRadius:8, fontSize:13, lineHeight:1.7,
+                     fontFamily:"Nunito, sans-serif", resize:"vertical",
+                     boxSizing:"border-box" }}/>
+          <div style={{ display:"flex", justifyContent:"space-between",
+                        alignItems:"center", marginTop:8 }}>
+            <div style={{ color:C.muted, fontSize:11 }}>
+              {value.trim().length > 0
+                ? `${value.trim().split(/\s+/).length} words · AI will build your blueprint from this`
+                : "Leave empty for full AI creation"}
+            </div>
+            {value.trim() && (
+              <button onClick={() => onChange("")}
+                style={{ background:"transparent", border:"none",
+                         color:C.muted, fontSize:11, cursor:"pointer",
+                         textDecoration:"underline" }}>
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Import Existing Work flow ─────────────────────────────────
+const IMPORT_MODES = [
+  {
+    id: "concept",
+    icon: "💡",
+    label: "Story Concept",
+    desc: "You have an idea, synopsis, or creative notes. AI builds the full blueprint from your vision.",
+    inputLabel: "Paste your story concept, synopsis, character notes, or plot ideas"
+  },
+  {
+    id: "outline",
+    icon: "📋",
+    label: "Existing Outline",
+    desc: "You have a chapter-by-chapter outline in any format. AI converts it to Obsidian chapter cards.",
+    inputLabel: "Paste your outline — any format works (numbered list, prose, beat sheet, etc.)"
+  },
+  {
+    id: "prose",
+    icon: "📝",
+    label: "Written Chapters",
+    desc: "You've already written chapters and want to continue. AI reads your work, builds a Story Bible, and outlines the rest.",
+    inputLabel: "Paste your written chapters"
+  },
+  {
+    id: "mixed",
+    icon: "📚",
+    label: "Chapters + Outline",
+    desc: "You have written chapters AND an outline for the rest. AI extracts the bible from your prose and converts your outline.",
+    inputLabel: "Paste your written chapters first, then your outline"
+  }
+];
+
+function ImportStoryFlow({ onImportComplete, onCancel, universes, activeUniverseId }) {
+  const [step, setStep] = useState(1);           // 1=choose mode, 2=enter content, 3=configure, 4=processing
+  const [mode, setMode] = useState(null);
+  const [mainText, setMainText] = useState("");  // prose or outline text
+  const [outlineText, setOutlineText] = useState(""); // only for "mixed" mode
+  const [storyTitle, setStoryTitle] = useState("");
+  const [selectedPresetId, setSelectedPresetId] = useState("custom");
+  const [chaptersWritten, setChaptersWritten] = useState(0);
+  const [totalChapters, setTotalChapters] = useState(24);
+  const [targetWordCount, setTargetWordCount] = useState(80000);
+  const [loading, setLoading] = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState("");
+  const [err, setErr] = useState("");
+
+  // File upload handler
+  const handleFileUpload = (e, setter) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setter(ev.target.result || "");
+    reader.readAsText(file);
+  };
+
+  const wordCount = (text) => text.trim().split(/\s+/).filter(Boolean).length;
+
+  const handleImport = async () => {
+    if (!storyTitle.trim()) {
+      setErr("Please enter a story title."); return;
+    }
+    if (!mainText.trim()) {
+      setErr("Please provide your story content."); return;
+    }
+
+    setLoading(true); setErr(""); setStep(4);
+
+    try {
+      let story = null;
+      let outline = null;
+      let bible = null;
+      let importedChapterProse = {};
+
+      if (mode === "concept") {
+        // Concept → full blueprint generation
+        setLoadingMsg("Building blueprint from your concept...");
+        story = await generateBlueprint({
+          laneVals: GENRE_PRESETS.find(p=>p.id===selectedPresetId)?.lanes ||
+            { ...DEFAULT_LANE_VALS },
+          tropes: GENRE_PRESETS.find(p=>p.id===selectedPresetId)?.tropes || [],
+          heat: GENRE_PRESETS.find(p=>p.id===selectedPresetId)?.heat || 3,
+          heroineArch: null, heroArch: null,
+          heroineWound: null, heroWound: null,
+          setting: null, city: null, family: null, intensity: 3,
+          externalConflict: null, relationshipObstacle: null, familyInfluence: 6,
+          spiceLevel: GENRE_PRESETS.find(p=>p.id===selectedPresetId)?.spiceLevel || 2,
+          romanceIntensity: GENRE_PRESETS.find(p=>p.id===selectedPresetId)?.romanceIntensity || DEFAULT_INTENSITY,
+          universe: null,
+          selectedPresetId,
+          userConcept: mainText,
+        });
+        story.spiceLevel = GENRE_PRESETS.find(p=>p.id===selectedPresetId)?.spiceLevel || 2;
+        story.romanceIntensity = GENRE_PRESETS.find(p=>p.id===selectedPresetId)?.romanceIntensity || DEFAULT_INTENSITY;
+        story.title = storyTitle || story.title;
+
+      } else if (mode === "outline") {
+        // Outline → minimal blueprint + chapter cards
+        setLoadingMsg("Reading your outline...");
+        // Create a minimal stub blueprint first
+        story = {
+          title: storyTitle,
+          tagline: "Imported story",
+          hook: "(Generated from imported outline)",
+          readerPromise: "",
+          heroine: { name:"(TBD)", age:"TBD", occupation:"TBD", wound:"TBD", externalGoal:"TBD" },
+          hero: { name:"(TBD)", age:"TBD", occupation:"TBD", wound:"TBD", externalGoal:"TBD" },
+          supporting:[], relationshipArc:[], wordCountTarget: targetWordCount + " words",
+          scores:{}, spiceLevel:3, romanceIntensity:DEFAULT_INTENSITY,
+          _importedOutline: true
+        };
+        setLoadingMsg("Converting your outline to chapter cards...");
+        outline = await generateOutlineFromImport(mainText, story, targetWordCount, totalChapters);
+
+      } else if (mode === "prose") {
+        // Prose → blueprint stub + bible + continuation outline
+        setLoadingMsg("Reading your chapters...");
+        // Minimal blueprint stub
+        story = {
+          title: storyTitle,
+          tagline: "Imported story",
+          hook: "(Extracted from imported chapters)",
+          readerPromise: "",
+          heroine: { name:"(extracting...)", age:"TBD", occupation:"TBD", wound:"TBD", externalGoal:"TBD" },
+          hero: { name:"(extracting...)", age:"TBD", occupation:"TBD", wound:"TBD", externalGoal:"TBD" },
+          supporting:[], relationshipArc:[], wordCountTarget: targetWordCount + " words",
+          scores:{}, spiceLevel:3, romanceIntensity:DEFAULT_INTENSITY,
+          _importedProse: true
+        };
+        setLoadingMsg("Extracting Story Bible from your chapters...");
+        bible = await generateBibleFromProse(mainText, story, chaptersWritten);
+
+        // Update story stub with extracted character info
+        if (bible.characters) {
+          const heroine = bible.characters.find(c => c.role === "heroine");
+          const hero = bible.characters.find(c => c.role === "hero");
+          if (heroine) story.heroine = { name:heroine.name, age:heroine.age, occupation:heroine.occupation, wound:heroine.wound, externalGoal:heroine.goals };
+          if (hero) story.hero = { name:hero.name, age:hero.age, occupation:hero.occupation, wound:hero.wound, externalGoal:hero.goals };
+        }
+        story.storyDNA = {
+          genreBlend: bible.world?.genre || "",
+          tone: bible.world?.tone || "",
+          heat: 3
+        };
+
+        setLoadingMsg("Generating continuation outline for remaining chapters...");
+        const continuationResult = await generateContinuationOutline(
+          story, bible, chaptersWritten, totalChapters, targetWordCount
+        );
+
+        // Build the full outline: placeholder entries for written chapters
+        // + real cards for continuation
+        const writtenPlaceholders = Array.from({length: chaptersWritten}, (_, i) => ({
+          number: i + 1,
+          title: "Chapter " + (i + 1) + " (imported)",
+          pov: "heroine",
+          scene: "(already written)",
+          beat: "(already written)",
+          arcStage: "Imported",
+          targetWordCount: Math.round(targetWordCount / totalChapters),
+          cliffhangerOrTurn: "",
+          continuityNotes: "Chapter imported from author's existing manuscript",
+        }));
+        const continuationChapters = (continuationResult.chapters || []).map(ch => ({
+          ...ch,
+          number: ch.number || (chaptersWritten + continuationResult.chapters.indexOf(ch) + 1)
+        }));
+        outline = { chapters: [...writtenPlaceholders, ...continuationChapters] };
+
+        // Store imported prose in chapterProse keyed by chapter number
+        // Split by common chapter markers if possible
+        const chapterBlocks = mainText.split(/\n(?=chapter\s+\d+|\bch[.]\s*\d+)/i);
+        if (chapterBlocks.length > 1) {
+          chapterBlocks.forEach((block, idx) => {
+            if (block.trim()) importedChapterProse[idx + 1] = block.trim();
+          });
+        } else {
+          // Can't split — store all as chapter 1
+          importedChapterProse[1] = mainText;
+        }
+
+      } else if (mode === "mixed") {
+        // Prose + outline → bible from prose + convert outline for remainder
+        setLoadingMsg("Extracting Story Bible from your chapters...");
+        story = {
+          title: storyTitle,
+          tagline: "Imported story",
+          hook: "(Imported)",
+          readerPromise: "",
+          heroine: { name:"(extracting...)", age:"TBD", occupation:"TBD", wound:"TBD", externalGoal:"TBD" },
+          hero: { name:"(extracting...)", age:"TBD", occupation:"TBD", wound:"TBD", externalGoal:"TBD" },
+          supporting:[], relationshipArc:[], wordCountTarget: targetWordCount + " words",
+          scores:{}, spiceLevel:3, romanceIntensity:DEFAULT_INTENSITY,
+        };
+        bible = await generateBibleFromProse(mainText, story, chaptersWritten);
+        if (bible.characters) {
+          const heroine = bible.characters.find(c => c.role === "heroine");
+          const hero = bible.characters.find(c => c.role === "hero");
+          if (heroine) story.heroine = { name:heroine.name, age:heroine.age, occupation:heroine.occupation, wound:heroine.wound, externalGoal:heroine.goals };
+          if (hero) story.hero = { name:hero.name, age:hero.age, occupation:hero.occupation, wound:hero.wound, externalGoal:hero.goals };
+        }
+        setLoadingMsg("Converting your outline for remaining chapters...");
+        const convertedOutline = await generateOutlineFromImport(
+          outlineText, story, targetWordCount, totalChapters - chaptersWritten
+        );
+        const writtenPlaceholders = Array.from({length: chaptersWritten}, (_, i) => ({
+          number: i + 1, title:"Chapter "+(i+1)+" (imported)", pov:"heroine",
+          scene:"(already written)", beat:"(already written)", arcStage:"Imported",
+          targetWordCount: Math.round(targetWordCount/totalChapters),
+          cliffhangerOrTurn:"", continuityNotes:"Imported from author's manuscript",
+        }));
+        outline = { chapters: [...writtenPlaceholders, ...(convertedOutline.chapters||[])] };
+
+        const chapterBlocks = mainText.split(/\n(?=chapter\s+\d+|\bch[.]\s*\d+)/i);
+        if (chapterBlocks.length > 1) {
+          chapterBlocks.forEach((block, idx) => {
+            if (block.trim()) importedChapterProse[idx + 1] = block.trim();
+          });
+        } else {
+          importedChapterProse[1] = mainText;
+        }
+      }
+
+      // Register story entities in global registry
+      const reg = loadGlobalRegistry();
+      const newReg = registerStoryEntities(reg, story);
+      saveGlobalRegistry(newReg);
+
+      // Call the import complete handler with all extracted data
+      onImportComplete({
+        story,
+        outline: outline || null,
+        bible: bible || null,
+        chapterProse: importedChapterProse,
+        bibleLocked: !!bible,
+        storyDNALocked: !!story.storyDNA,
+      });
+
+    } catch(e) {
+      setErr(e.message);
+      setLoading(false);
+      setStep(3);
+    }
+  };
+
+  // ── STEP 1: Choose mode ──
+  if (step === 1) return (
+    <div style={{ padding:"28px 30px", background:C.surface,
+                  border:"1px solid "+C.gold, borderRadius:14 }}>
+      <div style={{ color:C.gold, fontSize:11, letterSpacing:2,
+                    textTransform:"uppercase", fontWeight:700,
+                    marginBottom:4 }}>
+        Import Existing Work
+      </div>
+      <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif",
+                    fontSize:26, fontWeight:600, marginBottom:6 }}>
+        What are you bringing in?
+      </div>
+      <div style={{ color:C.muted, fontSize:13, marginBottom:22 }}>
+        Bring your existing work into Obsidian Story OS.
+        The tool will meet you wherever you are.
+      </div>
+      <div style={{ display:"grid", gap:10 }}>
+        {IMPORT_MODES.map(m => (
+          <button key={m.id} onClick={() => { setMode(m.id); setStep(2); }}
+            style={{ textAlign:"left", padding:"16px 18px",
+                     background: mode===m.id ? C.glow : "transparent",
+                     border:"1px solid "+(mode===m.id ? C.gold : C.borderLight),
+                     borderRadius:10, cursor:"pointer", transition:"all 0.15s" }}>
+            <div style={{ display:"flex", alignItems:"baseline", gap:10,
+                          marginBottom:5 }}>
+              <span style={{ fontSize:18 }}>{m.icon}</span>
+              <span style={{ color:C.text, fontWeight:600,
+                             fontSize:15 }}>{m.label}</span>
+            </div>
+            <div style={{ color:C.muted, fontSize:12,
+                          lineHeight:1.5 }}>{m.desc}</div>
+          </button>
+        ))}
+      </div>
+      <button onClick={onCancel}
+        style={{ marginTop:16, background:"transparent", border:"none",
+                 color:C.muted, fontSize:12, cursor:"pointer",
+                 textDecoration:"underline" }}>
+        Cancel
+      </button>
+    </div>
+  );
+
+  // ── STEP 2: Enter content ──
+  if (step === 2) {
+    const modeConfig = IMPORT_MODES.find(m => m.id === mode);
+    return (
+      <div style={{ padding:"28px 30px", background:C.surface,
+                    border:"1px solid "+C.gold, borderRadius:14 }}>
+        <button onClick={() => setStep(1)}
+          style={{ background:"transparent", border:"none",
+                   color:C.muted, fontSize:12, cursor:"pointer",
+                   marginBottom:18, textDecoration:"underline" }}>
+          ← Back
+        </button>
+        <div style={{ color:C.gold, fontSize:11, letterSpacing:2,
+                      textTransform:"uppercase", fontWeight:700,
+                      marginBottom:4 }}>
+          {modeConfig.icon} {modeConfig.label}
+        </div>
+
+        {/* Story title */}
+        <div style={{ marginBottom:18 }}>
+          <label style={{ display:"block", color:C.amber, fontSize:11,
+                          letterSpacing:1, textTransform:"uppercase",
+                          marginBottom:6, fontWeight:600 }}>
+            Story Title
+          </label>
+          <input value={storyTitle}
+            onChange={e => setStoryTitle(e.target.value)}
+            placeholder="Your story's title..."
+            style={{ width:"100%", padding:"10px 12px", background:C.card,
+                     color:C.text, border:"1px solid "+C.border,
+                     borderRadius:8, fontSize:14, fontFamily:"Nunito, sans-serif",
+                     boxSizing:"border-box" }}/>
+        </div>
+
+        {/* Main text input */}
+        <div style={{ marginBottom:14 }}>
+          <div style={{ display:"flex", justifyContent:"space-between",
+                        alignItems:"baseline", marginBottom:6 }}>
+            <label style={{ color:C.amber, fontSize:11, letterSpacing:1,
+                            textTransform:"uppercase", fontWeight:600 }}>
+              {modeConfig.inputLabel}
+            </label>
+            <label style={{ padding:"4px 10px", background:C.card,
+                            border:"1px solid "+C.borderLight,
+                            borderRadius:5, fontSize:10, color:C.muted,
+                            cursor:"pointer" }}>
+              📎 Upload .txt or .md
+              <input type="file" accept=".txt,.md"
+                onChange={e => handleFileUpload(e, setMainText)}
+                style={{ display:"none" }}/>
+            </label>
+          </div>
+          <textarea value={mainText} onChange={e => setMainText(e.target.value)}
+            rows={12}
+            placeholder={mode==="concept"
+              ? "Describe your story idea in your own words. Characters, premise, conflict, setting, tone — whatever you have..."
+              : mode==="outline"
+              ? "Chapter 1: ...\nChapter 2: ...\n\n(Any format works — numbered lists, prose beats, bullet points, etc.)"
+              : mode==="prose" || mode==="mixed"
+              ? "Paste your written chapters here. Chapter breaks don't need to be specially formatted..."
+              : ""}
+            style={{ width:"100%", padding:"12px 14px", background:C.card,
+                     color:C.text, border:"1px solid "+C.border,
+                     borderRadius:8, fontSize:12, lineHeight:1.7,
+                     fontFamily: mode==="prose"||mode==="mixed"
+                       ? "Cormorant Garamond, serif" : "Nunito, sans-serif",
+                     resize:"vertical", boxSizing:"border-box" }}/>
+          <div style={{ color:C.muted, fontSize:11, marginTop:4 }}>
+            {wordCount(mainText).toLocaleString()} words pasted
+          </div>
+        </div>
+
+        {/* Second input for "mixed" mode */}
+        {mode === "mixed" && (
+          <div style={{ marginBottom:14 }}>
+            <div style={{ display:"flex", justifyContent:"space-between",
+                          alignItems:"baseline", marginBottom:6 }}>
+              <label style={{ color:C.amber, fontSize:11, letterSpacing:1,
+                              textTransform:"uppercase", fontWeight:600 }}>
+                Your Outline for Remaining Chapters
+              </label>
+              <label style={{ padding:"4px 10px", background:C.card,
+                              border:"1px solid "+C.borderLight,
+                              borderRadius:5, fontSize:10, color:C.muted,
+                              cursor:"pointer" }}>
+                📎 Upload
+                <input type="file" accept=".txt,.md"
+                  onChange={e => handleFileUpload(e, setOutlineText)}
+                  style={{ display:"none" }}/>
+              </label>
+            </div>
+            <textarea value={outlineText}
+              onChange={e => setOutlineText(e.target.value)}
+              rows={8}
+              placeholder="Paste your outline for chapters you HAVEN'T written yet..."
+              style={{ width:"100%", padding:"12px 14px", background:C.card,
+                       color:C.text, border:"1px solid "+C.border,
+                       borderRadius:8, fontSize:12, lineHeight:1.7,
+                       fontFamily:"Nunito, sans-serif", resize:"vertical",
+                       boxSizing:"border-box" }}/>
+          </div>
+        )}
+
+        <button onClick={() => setStep(3)} disabled={!mainText.trim()||!storyTitle.trim()}
+          style={{ padding:"10px 20px",
+                   background:mainText.trim()&&storyTitle.trim() ? C.gold : C.faint,
+                   color:mainText.trim()&&storyTitle.trim() ? C.bg : C.muted,
+                   border:"none", borderRadius:8, fontWeight:700, fontSize:13,
+                   cursor:mainText.trim()&&storyTitle.trim()?"pointer":"not-allowed",
+                   fontFamily:"Nunito, sans-serif" }}>
+          Continue →
+        </button>
+      </div>
+    );
+  }
+
+  // ── STEP 3: Configure ──
+  if (step === 3) return (
+    <div style={{ padding:"28px 30px", background:C.surface,
+                  border:"1px solid "+C.gold, borderRadius:14 }}>
+      <button onClick={() => setStep(2)}
+        style={{ background:"transparent", border:"none",
+                 color:C.muted, fontSize:12, cursor:"pointer",
+                 marginBottom:18, textDecoration:"underline" }}>
+        ← Back
+      </button>
+      <div style={{ color:C.gold, fontSize:11, letterSpacing:2,
+                    textTransform:"uppercase", fontWeight:700,
+                    marginBottom:14 }}>
+        Configure Import
+      </div>
+
+      {err && (
+        <div style={{ padding:"10px 14px", background:"#FBE9E7",
+                      border:"1px solid #B8342D", borderRadius:6,
+                      color:"#B8342D", fontSize:12, marginBottom:14 }}>
+          ⚠ {err}
+        </div>
+      )}
+
+      {/* Genre preset */}
+      <div style={{ marginBottom:18 }}>
+        <label style={{ display:"block", color:C.amber, fontSize:11,
+                        letterSpacing:1, textTransform:"uppercase",
+                        marginBottom:8, fontWeight:600 }}>
+          Genre (for market positioning)
+        </label>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+          {GENRE_PRESETS.map(p => (
+            <button key={p.id} onClick={() => setSelectedPresetId(p.id)}
+              style={{ padding:"6px 12px", borderRadius:16,
+                       background:selectedPresetId===p.id ? C.gold : "transparent",
+                       color:selectedPresetId===p.id ? C.bg : C.text,
+                       border:"1px solid "+(selectedPresetId===p.id
+                         ? C.gold : C.borderLight),
+                       fontSize:12, cursor:"pointer",
+                       fontFamily:"Nunito, sans-serif" }}>
+              {p.icon} {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chapters written (prose/mixed modes) */}
+      {(mode==="prose" || mode==="mixed") && (
+        <div style={{ marginBottom:18 }}>
+          <label style={{ display:"block", color:C.amber, fontSize:11,
+                          letterSpacing:1, textTransform:"uppercase",
+                          marginBottom:6, fontWeight:600 }}>
+            How many chapters have you written?
+          </label>
+          <input type="number" min={1} max={100}
+            value={chaptersWritten}
+            onChange={e => setChaptersWritten(Math.max(1, +e.target.value))}
+            style={{ width:80, padding:"8px 10px", background:C.card,
+                     color:C.text, border:"1px solid "+C.border,
+                     borderRadius:6, fontSize:14,
+                     fontFamily:"Nunito, sans-serif" }}/>
+        </div>
+      )}
+
+      {/* Total chapters */}
+      <div style={{ marginBottom:18 }}>
+        <label style={{ display:"block", color:C.amber, fontSize:11,
+                        letterSpacing:1, textTransform:"uppercase",
+                        marginBottom:6, fontWeight:600 }}>
+          Total chapters planned
+        </label>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+          {[18, 24, 30, 36, 42].map(n => (
+            <button key={n} onClick={() => setTotalChapters(n)}
+              style={{ padding:"6px 12px", borderRadius:14,
+                       background:totalChapters===n ? C.amber : "transparent",
+                       color:totalChapters===n ? C.bg : C.text,
+                       border:"1px solid "+(totalChapters===n
+                         ? C.amber : C.borderLight),
+                       fontSize:12, cursor:"pointer",
+                       fontFamily:"Nunito, sans-serif" }}>
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Target word count */}
+      <div style={{ marginBottom:22 }}>
+        <label style={{ display:"block", color:C.amber, fontSize:11,
+                        letterSpacing:1, textTransform:"uppercase",
+                        marginBottom:6, fontWeight:600 }}>
+          Target word count
+        </label>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+          {[60000, 80000, 90000, 100000].map(n => (
+            <button key={n} onClick={() => setTargetWordCount(n)}
+              style={{ padding:"6px 12px", borderRadius:14,
+                       background:targetWordCount===n ? C.amber : "transparent",
+                       color:targetWordCount===n ? C.bg : C.text,
+                       border:"1px solid "+(targetWordCount===n
+                         ? C.amber : C.borderLight),
+                       fontSize:12, cursor:"pointer",
+                       fontFamily:"Nunito, sans-serif" }}>
+              {(n/1000)+"K"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display:"flex", gap:10 }}>
+        <button onClick={handleImport}
+          style={{ padding:"12px 24px",
+                   background:"linear-gradient(135deg,"+C.gold+","+C.amber+")",
+                   color:C.bg, border:"none", borderRadius:8, fontWeight:700,
+                   fontSize:14, cursor:"pointer",
+                   fontFamily:"Nunito, sans-serif" }}>
+          {mode==="concept" ? "⚡ Build Blueprint from Concept"
+           : mode==="outline" ? "📋 Import & Convert Outline"
+           : mode==="prose" ? "📝 Import Chapters & Continue"
+           : "📚 Import Everything"}
+        </button>
+        <button onClick={onCancel}
+          style={{ padding:"12px 18px", background:"transparent",
+                   color:C.muted, border:"1px solid "+C.borderLight,
+                   borderRadius:8, fontWeight:600, fontSize:13,
+                   cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── STEP 4: Loading ──
+  return (
+    <div style={{ padding:"40px 30px", background:C.surface,
+                  border:"1px solid "+C.gold, borderRadius:14,
+                  textAlign:"center" }}>
+      <div style={{ fontSize:40, marginBottom:16 }}>
+        {mode==="concept"?"💡":mode==="outline"?"📋":mode==="prose"?"📝":"📚"}
+      </div>
+      <div style={{ color:C.gold, fontFamily:"Cormorant Garamond, serif",
+                    fontSize:22, fontWeight:600, marginBottom:8 }}>
+        {loadingMsg || "Importing your work..."}
+      </div>
+      <div style={{ color:C.muted, fontSize:12 }}>
+        This may take 30-60 seconds
+      </div>
+    </div>
+  );
+}
+
+function MyStories({ stories, activeStoryId, onOpen, onDuplicate, onDelete, onImport, onImportExisting }) {
   const fileRef = useRef(null);
   const sorted = [...stories].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
   const btn = (bg, color, filled) => ({
@@ -7752,7 +8519,14 @@ function MyStories({ stories, activeStoryId, onOpen, onDuplicate, onDelete, onIm
           <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:30, fontWeight:700 }}>My Stories</div>
           <div style={{ color:C.muted, fontSize:12, marginTop:2 }}>{sorted.length} {sorted.length===1?"story":"stories"} saved on this device</div>
         </div>
-        <div>
+        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+          <button onClick={()=>onImportExisting && onImportExisting()}
+            style={{ padding:"8px 16px", background:"transparent",
+                     color:C.gold, border:"1px solid "+C.gold,
+                     borderRadius:8, fontSize:12, fontWeight:600,
+                     cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+            📥 Import Existing Work
+          </button>
           <input ref={fileRef} type="file" accept=".json" style={{ display:"none" }}
             onChange={(e)=>{ const f=e.target.files&&e.target.files[0]; if(f) onImport(f); e.target.value=""; }}/>
           <button onClick={()=>fileRef.current&&fileRef.current.click()}
@@ -7838,6 +8612,10 @@ export default function App() {
   // ── Phase 1.5: genre preset quick-start ──
   const [selectedPreset, setSelectedPreset] = useState(null);
   const [tropeFilter, setTropeFilter] = useState("All");  // trope category tab (custom mode)
+
+  // ── Import & Continue ──
+  const [userConcept, setUserConcept] = useState("");        // optional New Story concept
+  const [showingImport, setShowingImport] = useState(false); // Import Existing Work flow
 
   // ── Story Intelligence Layer ──
   const [storyDNALocked, setStoryDNALocked] = useState(false);
@@ -8128,6 +8906,7 @@ export default function App() {
         externalConflict, relationshipObstacle, familyInfluence,
         spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng,
         selectedPresetId: selectedPreset,
+        userConcept,
         universe: activeUniverse
       });
       // Attach spice/intensity to the story object so the scene engine can use them
@@ -8176,6 +8955,42 @@ export default function App() {
       setDetailUniverseId(null);
     }
   };
+
+  // ── Import & Continue: finalize an imported story into a new record ──
+  const handleImportComplete = useCallback(({ story: importedStory, outline: importedOutline,
+                                               bible: importedBible, chapterProse: importedProse,
+                                               bibleLocked: importedBibleLocked,
+                                               storyDNALocked: importedDNALocked }) => {
+    const newId = newStoryId();
+    const record = freshStoryRecord(newId);
+    record.title = importedStory.title || "Imported Story";
+    record.spiceLevel = importedStory.spiceLevel || 3;
+    record.romanceIntensity = importedStory.romanceIntensity || DEFAULT_INTENSITY;
+    record.blueprint = importedStory;
+    record.outline = importedOutline || null;
+    record.bible = importedBible || null;
+    record.chapterProse = importedProse || {};
+    record.bibleLocked = importedBibleLocked || false;
+    record.storyDNALocked = importedDNALocked || false;
+
+    // Persist + register in React state (skip the autosave that would otherwise
+    // clobber the record with the still-default builder state)
+    skipAutosaveRef.current = true;
+    setStories(prev => { const next = [record, ...prev]; saveStories(next); return next; });
+    setActiveStoryId(newId); saveActiveStoryId(newId);
+
+    // Hydrate App output state from the import
+    setStory(importedStory);
+    setOutline(importedOutline || null);
+    setBible(importedBible || null);
+    setBibleLocked(importedBibleLocked || false);
+    setStoryDNALocked(importedDNALocked || false);
+    setChapterProse(importedProse && Object.keys(importedProse).length ? importedProse : {});
+
+    setShowingImport(false);
+    setActiveSection("newStory");
+    setView("story");
+  }, []);
 
   // ── W2: multi-story persistence helpers ─────────────────────
   const activeStoryRec = stories.find(s => s.id === activeStoryId) || null;
@@ -8538,13 +9353,22 @@ export default function App() {
 
             {/* MY STORIES library */}
             {activeSection === "myStories" && (
-              <MyStories
-                stories={stories}
-                activeStoryId={activeStoryId}
-                onOpen={openStory}
-                onDuplicate={duplicateStory}
-                onDelete={deleteStory}
-                onImport={importStoryFromJSON}/>
+              showingImport ? (
+                <ImportStoryFlow
+                  onImportComplete={handleImportComplete}
+                  onCancel={()=>setShowingImport(false)}
+                  universes={universes}
+                  activeUniverseId={activeUniverseId}/>
+              ) : (
+                <MyStories
+                  stories={stories}
+                  activeStoryId={activeStoryId}
+                  onOpen={openStory}
+                  onDuplicate={duplicateStory}
+                  onDelete={deleteStory}
+                  onImport={importStoryFromJSON}
+                  onImportExisting={()=>setShowingImport(true)}/>
+              )
             )}
 
             {/* EDITOR MODE dashboard (Story Intelligence Layer) */}
@@ -8584,6 +9408,11 @@ export default function App() {
                 </button>
               </div>
             )}
+
+        {/* STORY CONCEPT — optional, first section in the New Story builder */}
+        {activeSection === "newStory" && (
+          <StoryConceptInput value={userConcept} onChange={setUserConcept}/>
+        )}
 
         {/* STORY BLEND */}
         <div style={{ padding:"24px 28px", background:C.surface, border:"1px solid "+C.border, borderRadius:14, marginBottom:22 }}>
