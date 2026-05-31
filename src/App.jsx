@@ -2508,7 +2508,8 @@ function exportStoryPackage(storyRecord) {
 
 // ── Publishing Studio Component ──────────────────────────────
 
-function ChapterBuilder({ story, universe, chapterState, saveStatus, forceSave, activeStoryId }) {
+function ChapterBuilder({ story, universe, chapterState, saveStatus, forceSave, activeStoryId,
+                          pendingSceneDirectorIssue, setPendingSceneDirectorIssue, onGoToEditorMode }) {
   // Manuscript spec
   const [targetWordCount, setTargetWordCount] = useState(80000);
   const [chapterCount, setChapterCount] = useState(32);
@@ -2548,7 +2549,44 @@ function ChapterBuilder({ story, universe, chapterState, saveStatus, forceSave, 
   const [editingScene, setEditingScene] = useState(null);     // {ch, sc}
   const [expandedChapter, setExpandedChapter] = useState(null);
 
+  // ── Scene Director state ──
+  const [directorOpen, setDirectorOpen] = useState(null);          // { chapterNum, sceneNum } | null
+  const [sandboxInstruction, setSandboxInstruction] = useState(""); // pre-filled from Editor Mode issue
+  const [fromEditorMode, setFromEditorMode] = useState(false);     // true when opened via fixIssueInSceneStudio
+
   const [err, setErr] = useState("");
+
+  // ── Consume a pending issue from Editor Mode ──
+  // When the user clicks "Fix in Scene Studio →", App sets pendingSceneDirectorIssue
+  // and navigates here. This effect picks it up, opens the right chapter/scene,
+  // pre-fills the sandbox, and clears the pending issue.
+  useEffect(() => {
+    if (!pendingSceneDirectorIssue) return;
+    const { chapterNum } = pendingSceneDirectorIssue;
+
+    // Expand the chapter so scene cards are visible
+    setExpandedChapter(chapterNum);
+
+    // Scroll to the chapter card
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`chapter-${chapterNum}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    // Find the last scene with prose in this chapter (fall back to scene 1)
+    const writtenNums = Object.keys(sceneProse?.[chapterNum] || {})
+      .map(Number)
+      .filter(n => sceneProse[chapterNum][n]);
+    const targetScene = writtenNums.length > 0 ? Math.max(...writtenNums) : 1;
+
+    // Open the Scene Director on the Sandbox tab for that scene
+    setDirectorOpen({ chapterNum, sceneNum: targetScene });
+    setSandboxInstruction(pendingSceneDirectorIssue.instruction);
+    setFromEditorMode(true);
+
+    // Clear the pending issue so re-renders don't re-trigger
+    setPendingSceneDirectorIssue(null);
+  }, [pendingSceneDirectorIssue]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildOutline = useCallback(async () => {
     setLoadingOutline(true); setErr("");
@@ -3047,13 +3085,14 @@ function ChapterBuilder({ story, universe, chapterState, saveStatus, forceSave, 
             const allScenesComplete = hasScenes && sceneStatuses.every(s => s==="complete" || s==="locked");
 
             return (
-              <div key={ch.number} style={{ padding:18, background:C.card,
-                                            border:"1px solid "+(priorFail && !chapterProse[ch.number] ? "#B8342D" :
-                                              (chapterReports[ch.number] ?
-                                                (chapterReports[ch.number].status==="PASS"?"#2D8B7A":chapterReports[ch.number].status==="WARNING"?"#B07A1F":"#B8342D") :
-                                                C.border)),
-                                            borderRadius:10, marginBottom:14,
-                                            opacity: priorFail && !chapterProse[ch.number] ? 0.7 : 1 }}>
+              <div key={ch.number} id={`chapter-${ch.number}`}
+                style={{ padding:18, background:C.card,
+                         border:"1px solid "+(priorFail && !chapterProse[ch.number] ? "#B8342D" :
+                           (chapterReports[ch.number] ?
+                             (chapterReports[ch.number].status==="PASS"?"#2D8B7A":chapterReports[ch.number].status==="WARNING"?"#B07A1F":"#B8342D") :
+                             C.border)),
+                         borderRadius:10, marginBottom:14,
+                         opacity: priorFail && !chapterProse[ch.number] ? 0.7 : 1 }}>
 
                 {/* Chapter header */}
                 <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:8, flexWrap:"wrap", gap:8 }}>
@@ -3241,6 +3280,82 @@ function ChapterBuilder({ story, universe, chapterState, saveStatus, forceSave, 
                                 setSceneSummaries(prev => { const c={...prev}; delete c[ch.number]; return c; });
                                 setChapterReports(prev => { const c={...prev}; delete c[ch.number]; return c; });
                               }}/>
+                          </div>
+                        )}
+
+                        {/* ── SCENE DIRECTOR PANEL ── */}
+                        {directorOpen && directorOpen.chapterNum === ch.number && (
+                          <div style={{ marginTop:14, padding:"18px 20px", background:C.surface, border:"1px solid "+C.gold, borderRadius:10 }}>
+
+                            {/* Header */}
+                            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+                              <div>
+                                <div style={{ color:C.gold, fontSize:10, letterSpacing:2, textTransform:"uppercase", fontWeight:700 }}>
+                                  Scene Director
+                                </div>
+                                <div style={{ color:C.text, fontSize:13, fontWeight:600, marginTop:2 }}>
+                                  Ch. {directorOpen.chapterNum} · Scene {directorOpen.sceneNum} · Sandbox
+                                </div>
+                              </div>
+                              <button onClick={() => { setDirectorOpen(null); setFromEditorMode(false); setSandboxInstruction(""); }}
+                                style={{ background:"transparent", border:"1px solid "+C.borderLight, borderRadius:5, color:C.muted,
+                                         fontSize:11, cursor:"pointer", padding:"3px 8px", fontFamily:"Nunito, sans-serif" }}>
+                                × Close
+                              </button>
+                            </div>
+
+                            {/* Context banner — shown when opened from Editor Mode */}
+                            {fromEditorMode && pendingSceneDirectorIssue === null && (
+                              <div style={{ padding:"8px 12px", background:"rgba(212,134,58,0.1)", border:"1px solid "+C.amber,
+                                            borderRadius:8, marginBottom:12, fontSize:11, color:C.amber,
+                                            display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                                <span>
+                                  ⚠ Editing from Editor Mode feedback · Ch {directorOpen.chapterNum}
+                                </span>
+                                <button onClick={() => setFromEditorMode(false)}
+                                  style={{ background:"transparent", border:"none", color:C.amber, cursor:"pointer", fontSize:14, padding:"0 2px" }}>
+                                  ×
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Sandbox instruction textarea */}
+                            <div style={{ color:C.muted, fontSize:10, textTransform:"uppercase", letterSpacing:1, fontWeight:700, marginBottom:6 }}>
+                              Sandbox · Revision Instruction
+                            </div>
+                            <textarea
+                              value={sandboxInstruction}
+                              onChange={e => setSandboxInstruction(e.target.value)}
+                              placeholder="Describe what needs to change in this scene — the Scene Director will use this as your revision brief..."
+                              rows={5}
+                              style={{ width:"100%", background:C.bg, border:"1px solid "+C.borderLight, borderRadius:6,
+                                       color:C.text, fontSize:12, padding:"10px 12px", fontFamily:"Nunito, sans-serif",
+                                       resize:"vertical", lineHeight:1.6, boxSizing:"border-box" }}/>
+
+                            {/* Actions */}
+                            <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap", alignItems:"center" }}>
+                              <button
+                                onClick={() => {
+                                  // Copy instruction to clipboard for reference while editing
+                                  navigator.clipboard?.writeText(sandboxInstruction).catch(()=>{});
+                                  setEditingScene({ ch: directorOpen.chapterNum, sc: directorOpen.sceneNum });
+                                }}
+                                disabled={!sandboxInstruction.trim()}
+                                style={{ padding:"7px 14px", background: sandboxInstruction.trim() ? C.gold : C.faint,
+                                         color: sandboxInstruction.trim() ? C.bg : C.muted,
+                                         border:"none", borderRadius:6, fontWeight:700, fontSize:11,
+                                         cursor: sandboxInstruction.trim() ? "pointer" : "not-allowed", fontFamily:"Nunito, sans-serif" }}>
+                                ✎ Open Scene Editor
+                              </button>
+                              {fromEditorMode && onGoToEditorMode && (
+                                <button onClick={onGoToEditorMode}
+                                  style={{ padding:"7px 14px", background:"transparent", border:"1px solid "+C.amber,
+                                           borderRadius:6, color:C.amber, fontSize:11, fontWeight:600,
+                                           cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+                                  ← Back to Editor Mode
+                                </button>
+                              )}
+                            </div>
                           </div>
                         )}
 
@@ -3454,7 +3569,7 @@ function ActivatedPatternsCard({ patterns, calibration, currentSpice, currentInt
   );
 }
 
-function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activeUniverse, activatedPatterns, chapterState, saveStatus, forceSave, activeStoryId }) {
+function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activeUniverse, activatedPatterns, chapterState, saveStatus, forceSave, activeStoryId, pendingSceneDirectorIssue, setPendingSceneDirectorIssue, onGoToEditorMode }) {
   return (
     <div style={{ marginTop:28 }}>
       <div style={{ padding:"28px 30px", background:"linear-gradient(135deg, "+C.surface+", "+C.card+")",
@@ -3571,7 +3686,10 @@ function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activ
       {/* Phase 1.5: MarketDashboard + ActivatedPatternsCard moved to Market Intelligence */}
       <SaveBlueprint story={story} universes={universes} activeUniverseId={activeUniverseId} onSaveToUniverse={onSaveToUniverse}/>
       <ChapterBuilder story={story} universe={activeUniverse} chapterState={chapterState}
-        saveStatus={saveStatus} forceSave={forceSave} activeStoryId={activeStoryId}/>
+        saveStatus={saveStatus} forceSave={forceSave} activeStoryId={activeStoryId}
+        pendingSceneDirectorIssue={pendingSceneDirectorIssue}
+        setPendingSceneDirectorIssue={setPendingSceneDirectorIssue}
+        onGoToEditorMode={onGoToEditorMode}/>
     </div>
   );
 }
@@ -4196,6 +4314,10 @@ export default function App() {
   const [activeUniverseId, setActiveUniverseId] = useState(null);   // universe being authored INTO
   const [detailUniverseId, setDetailUniverseId] = useState(null);   // universe being viewed
 
+  // ── Editor Mode → Scene Studio bridge ──
+  // Holds an issue from the Editor Mode analysis that should pre-fill the Scene Director sandbox.
+  const [pendingSceneDirectorIssue, setPendingSceneDirectorIssue] = useState(null);
+
   // Persist universes whenever they change
   const persistUniverses = useCallback((next) => {
     setUniverses(next);
@@ -4493,6 +4615,13 @@ export default function App() {
       setDetailUniverseId(null);
     }
   };
+
+  // Navigate to Scene Studio with a pre-loaded issue from Editor Mode
+  const fixIssueInSceneStudio = useCallback((issue) => {
+    setPendingSceneDirectorIssue(issue);
+    setActiveSection("sceneStudio");
+    setView("story");
+  }, []);
 
   // ── Import & Continue: finalize an imported story into a new record ──
   const handleImportComplete = useCallback(({ story: importedStory, outline: importedOutline,
@@ -4931,7 +5060,8 @@ export default function App() {
                     chapterProse={chapterProse} chapterSummaries={chapterSummaries}
                     report={storyHealthReport} analyzing={analyzingHealth}
                     timestamp={healthAnalysisTimestamp} error={healthAnalysisErr}
-                    onRunAnalysis={runStoryAnalysis} onAddManualThread={addManualThreadApp}/>
+                    onRunAnalysis={runStoryAnalysis} onAddManualThread={addManualThreadApp}
+                    onFixInSceneStudio={fixIssueInSceneStudio}/>
                 </Suspense>
               ) : (
                 <NeedsStoryEmpty section="Editor Mode" onGoToBuilder={()=>goToSection("newStory")}/>
@@ -5213,7 +5343,10 @@ export default function App() {
             chapterState={chapterState}
             saveStatus={saveStatus}
             forceSave={forceSave}
-            activeStoryId={activeStoryId}/>
+            activeStoryId={activeStoryId}
+            pendingSceneDirectorIssue={pendingSceneDirectorIssue}
+            setPendingSceneDirectorIssue={setPendingSceneDirectorIssue}
+            onGoToEditorMode={()=>{ setActiveSection("editorMode"); setView("story"); }}/>
         )}
 
               </>

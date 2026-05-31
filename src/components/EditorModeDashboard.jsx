@@ -1,10 +1,62 @@
 import { C } from "../constants/theme";
 import PlotThreadTracker from "./PlotThreadTracker";
 
+// ── Builds a pre-filled sandbox instruction from an Editor Mode issue ──
+function buildSandboxInstruction(issue, source) {
+  const base = issue.description || issue.note || issue.text || issue.reason || "";
+  const fix  = issue.fix || issue.suggestion || "";
+
+  const sourceContext = {
+    dropout_risk:       "This scene is a dropout risk — readers may abandon the book here.",
+    character_audit:    "This scene has a character development issue that needs attention.",
+    sag_point:          "This scene is contributing to a story sag — the narrative needs forward momentum.",
+    subplot_ranking:    "A subplot tracked in this chapter needs to be advanced or resolved.",
+    promise_fulfillment:"This scene is not delivering on a reader promise made earlier.",
+    editor_notes:       "The editor flagged this scene as needing attention.",
+  }[source] || "The story analysis flagged this scene.";
+
+  return [
+    sourceContext,
+    base && `Issue: ${base}`,
+    fix  && `Suggested fix: ${fix}`,
+  ].filter(Boolean).join(" ");
+}
+
+// ── Reusable "Fix in Scene Studio" button ──
+function FixBtn({ chapterNum, issue, source, onFix }) {
+  if (!chapterNum || !onFix) return null;
+  return (
+    <button
+      onClick={() => onFix({
+        chapterNum,
+        issueText:   issue.description || issue.note || issue.reason || issue.text || "",
+        issueSource: source,
+        instruction: buildSandboxInstruction(issue, source),
+      })}
+      style={{
+        marginTop: 8,
+        padding: "4px 12px",
+        background: "transparent",
+        border: "1px solid " + C.gold,
+        borderRadius: 6,
+        color: C.gold,
+        fontSize: 10,
+        fontWeight: 600,
+        cursor: "pointer",
+        fontFamily: "Nunito, sans-serif",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+      }}>
+      ✎ Fix in Scene Studio →
+    </button>
+  );
+}
+
 export default function EditorModeDashboard({ story, outline, bible, chapterProse,
                                chapterSummaries, report, analyzing,
                                timestamp, error, onRunAnalysis,
-                               onAddManualThread }) {
+                               onAddManualThread, onFixInSceneStudio }) {
 
   const writtenCount = Object.values(chapterProse).filter(Boolean).length;
   const scoreColor = (s) => s >= 8 ? "#2D8B7A" : s >= 6 ? "#B07A1F" : "#B8342D";
@@ -199,6 +251,13 @@ export default function EditorModeDashboard({ story, outline, bible, chapterPros
                   </div>
                   <div style={{ color:C.muted, fontSize:11, marginBottom:3 }}>{s.issue}</div>
                   <div style={{ color:C.gold, fontSize:11 }}>Fix: {s.fix}</div>
+                  {(s.chapters||[]).length > 0 && (
+                    <FixBtn
+                      chapterNum={(s.chapters||[])[0]}
+                      issue={s}
+                      source="sag_point"
+                      onFix={onFixInSceneStudio}/>
+                  )}
                 </div>
               ))}
               {(!report.sagPoints || report.sagPoints.length===0) && (<div style={{ color:"#2D8B7A", fontSize:12, fontStyle:"italic" }}>✓ No significant sag points detected.</div>)}
@@ -212,13 +271,22 @@ export default function EditorModeDashboard({ story, outline, bible, chapterPros
               {report.dropoutRisk.map((d,i) => {
                 const rColor = d.riskLevel==="high" ? "#B8342D" : d.riskLevel==="medium" ? "#B07A1F" : "#2D8B7A";
                 return (
-                  <div key={i} style={{ display:"flex", gap:12, alignItems:"flex-start", padding:"8px 0", borderBottom:i<report.dropoutRisk.length-1 ? "1px solid "+C.faint : "none" }}>
-                    <div style={{ minWidth:60, padding:"3px 8px", background:rColor+"22", border:"1px solid "+rColor, borderRadius:6, fontSize:10, color:rColor, fontWeight:700, textAlign:"center" }}>Ch {d.afterChapter}</div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ color:C.text, fontSize:12, marginBottom:3 }}>{d.reason}</div>
-                      <div style={{ color:C.gold, fontSize:11 }}>Fix: {d.fix}</div>
+                  <div key={i} style={{ padding:"8px 0", borderBottom:i<report.dropoutRisk.length-1 ? "1px solid "+C.faint : "none" }}>
+                    <div style={{ display:"flex", gap:12, alignItems:"flex-start" }}>
+                      <div style={{ minWidth:60, padding:"3px 8px", background:rColor+"22", border:"1px solid "+rColor, borderRadius:6, fontSize:10, color:rColor, fontWeight:700, textAlign:"center" }}>Ch {d.afterChapter}</div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ color:C.text, fontSize:12, marginBottom:3 }}>{d.reason}</div>
+                        <div style={{ color:C.gold, fontSize:11 }}>Fix: {d.fix}</div>
+                      </div>
+                      <span style={{ padding:"1px 6px", background:rColor+"22", border:"1px solid "+rColor, borderRadius:8, fontSize:9, color:rColor, fontWeight:700, textTransform:"uppercase", flexShrink:0 }}>{d.riskLevel}</span>
                     </div>
-                    <span style={{ padding:"1px 6px", background:rColor+"22", border:"1px solid "+rColor, borderRadius:8, fontSize:9, color:rColor, fontWeight:700, textTransform:"uppercase", flexShrink:0 }}>{d.riskLevel}</span>
+                    {d.afterChapter && (
+                      <FixBtn
+                        chapterNum={d.afterChapter}
+                        issue={d}
+                        source="dropout_risk"
+                        onFix={onFixInSceneStudio}/>
+                    )}
                   </div>
                 );
               })}
@@ -275,11 +343,22 @@ export default function EditorModeDashboard({ story, outline, bible, chapterPros
               {[...report.editorNotes].sort((a,b) => a.priority.localeCompare(b.priority)).map((n,i) => {
                 const pColor = n.priority==="P1"?"#B8342D":n.priority==="P2"?C.amber:"#6B665E";
                 return (
-                  <div key={i} style={{ display:"flex", gap:10, alignItems:"flex-start", padding:"8px 0", borderBottom:i<report.editorNotes.length-1?"1px solid "+C.faint:"none" }}>
-                    <span style={{ padding:"2px 8px", background:pColor+"22", border:"1px solid "+pColor, borderRadius:6, fontSize:10, color:pColor, fontWeight:700, flexShrink:0 }}>{n.priority}</span>
-                    <div style={{ flex:1 }}>
-                      <span style={{ color:C.text, fontSize:12 }}>{n.chapter ? `Ch ${n.chapter} — ` : "Story-wide — "}{n.note}</span>
+                  <div key={i} style={{ padding:"8px 0", borderBottom:i<report.editorNotes.length-1?"1px solid "+C.faint:"none" }}>
+                    <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
+                      <span style={{ padding:"2px 8px", background:pColor+"22", border:"1px solid "+pColor, borderRadius:6, fontSize:10, color:pColor, fontWeight:700, flexShrink:0 }}>{n.priority}</span>
+                      <div style={{ flex:1 }}>
+                        <span style={{ color:C.text, fontSize:12 }}>{n.chapter ? `Ch ${n.chapter} — ` : "Story-wide — "}{n.note}</span>
+                      </div>
                     </div>
+                    {n.chapter && (
+                      <div style={{ paddingLeft:54 }}>
+                        <FixBtn
+                          chapterNum={n.chapter}
+                          issue={n}
+                          source="editor_notes"
+                          onFix={onFixInSceneStudio}/>
+                      </div>
+                    )}
                   </div>
                 );
               })}
