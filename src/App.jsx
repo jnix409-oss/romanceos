@@ -2822,7 +2822,16 @@ function ChapterBuilder({ story, universe, chapterState, saveStatus, forceSave, 
     // Assemble and store as chapter prose
     const assembled = scenes.map(s => proseMap[s.sceneNumber]).join("\n\n");
     setChapterProse(prev => ({...prev, [chapterNum]: assembled}));
-  }, [chapterSceneCards, sceneProse, chapterProse, saveChapterVersion]);
+    // Run continuity check on assembled prose
+    setCheckingCh(chapterNum); setErr("");
+    try {
+      const report = await generateContinuityReport(story, bible, chapterNum, assembled, outline);
+      setChapterReports(prev => ({...prev, [chapterNum]: report}));
+      const updated = mergeBibleUpdates(bible, report, chapterNum);
+      setBible(updated);
+    } catch(e) { setErr(e.message); }
+    finally { setCheckingCh(null); }
+  }, [story, outline, bible, chapterSceneCards, sceneProse, chapterProse, saveChapterVersion]);
 
     const exportChapter = useCallback((n) => {
     const ch = outline.chapters[n-1];
