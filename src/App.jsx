@@ -1550,8 +1550,51 @@ function topArchetypes(archetypes, normLanes, n=5) {
     .sort((x,y)=>y.s-x.s).slice(0,n).map(x=>x.a);
 }
 
+// ── Model routing (sweet-spot per task type) ──────────────────
+const MODEL_CONFIG = {
+  // ── Opus 4.8: complex reasoning + prose quality ──
+  blueprint:    "claude-opus-4-8",  // story concept + market architecture
+  outline:      "claude-opus-4-8",  // chapter architecture shapes everything
+  prose:        "claude-opus-4-8",  // chapter prose — quality is the product
+  sceneProse:   "claude-opus-4-8",  // scene prose — same reason
+  analysis:     "claude-opus-4-8",  // story health editorial reasoning
+
+  // ── Sonnet 4.6: structured tasks + analytical work ──
+  bible:        "claude-sonnet-4-6", // structured extraction from story data
+  continuity:   "claude-sonnet-4-6", // analytical JSON check
+  sceneCards:   "claude-sonnet-4-6", // structured JSON scene architecture
+  publishing:   "claude-sonnet-4-6", // marketing copy + structured output
+  universe:     "claude-sonnet-4-6", // lore extraction + structured JSON
+  alternatives: "claude-sonnet-4-6", // creative alternatives list
+  importProse:  "claude-sonnet-4-6", // extract bible from imported chapters
+  importOutline:"claude-sonnet-4-6", // convert outline to chapter cards
+  continuation: "claude-sonnet-4-6", // continuation outline generation
+
+  // ── Haiku 4.5: simple extraction, speed priority ──
+  summarize:    "claude-haiku-4-5-20251001", // chapter + scene summaries
+
+  // ── Fast Draft default (user can override to Opus in UI) ──
+  fastDraft:    "claude-sonnet-4-6",
+};
+
+// Fast Draft model options (surfaced in the Fast Draft controls)
+const FAST_DRAFT_MODELS = [
+  {
+    id: "claude-sonnet-4-6",
+    label: "Sonnet 4.6",
+    badge: "Faster",
+    note: "~35-45s · Great quality"
+  },
+  {
+    id: "claude-opus-4-8",
+    label: "Opus 4.8",
+    badge: "Best Quality",
+    note: "~60-90s · Best prose"
+  },
+];
+
 // ── API ───────────────────────────────────────────────────────
-async function apiCall(sys, user, maxTokens) {
+async function apiCall(sys, user, maxTokens, model) {
   // Streamed request. Long generations (e.g. the chapter outline) take ~30s,
   // which exceeds the proxy/gateway inactivity timeout for a buffered response.
   // Streaming keeps bytes flowing so the connection stays alive, and we
@@ -1565,7 +1608,7 @@ async function apiCall(sys, user, maxTokens) {
         "x-proxy-secret": import.meta.env.VITE_PROXY_SECRET || "",
       },
       body:JSON.stringify({
-        model:"claude-sonnet-4-20250514",
+        model: model || MODEL_CONFIG.prose,
         max_tokens: maxTokens||1500,
         system:sys,
         messages:[{role:"user",content:user}],
@@ -1617,8 +1660,8 @@ async function apiCall(sys, user, maxTokens) {
   return raw;
 }
 
-async function apiCallJSON(sys, user, maxTokens) {
-  const raw = await apiCall(sys, user, maxTokens);
+async function apiCallJSON(sys, user, maxTokens, model) {
+  const raw = await apiCall(sys, user, maxTokens, model);
   const s = raw.indexOf("{");
   const e = raw.lastIndexOf("}");
   if (s===-1||e===-1) throw new Error("No JSON. Got: "+raw.slice(0,100));
@@ -1956,7 +1999,7 @@ async function generateBlueprint(opts) {
     registryAvoidance
   ].filter(Boolean).join("\n");
 
-  const core = await apiCallJSON(SYS_STORY, call1, 2200);
+  const core = await apiCallJSON(SYS_STORY, call1, 2200, MODEL_CONFIG.blueprint);
 
   const hname = (core.heroine && core.heroine.name) || "the heroine";
   const hocc  = (core.heroine && core.heroine.occupation) || "";
@@ -2017,7 +2060,7 @@ async function generateBlueprint(opts) {
     "storyDNA: object with keys: genreBlend (max 8 words — top 2-3 lanes as a phrase), readerPromise (copy from core.readerPromise), tone (max 8 words), heat (integer — the heat level), heroineWound (max 14 words), heroWound (max 14 words), centralConflict (max 14 words), relationshipObstacle (max 14 words)"
   ].filter(Boolean).join("\n");
 
-  const struct = await apiCallJSON(SYS_STORY, call2, 3500);
+  const struct = await apiCallJSON(SYS_STORY, call2, 3500, MODEL_CONFIG.blueprint);
   const result = Object.assign({}, core, struct);
   if (urbanDrama) result.urbanDrama = true;
   return result;
@@ -2059,7 +2102,7 @@ async function generateChapterOutline(story, opts) {
     "continuityNotes (1 short phrase, max 14 words — what MUST be tracked from this chapter into future chapters: a clue planted, a relational shift, an open thread)"
   ].join("\n");
 
-  return await apiCallJSON(SYS_STORY, user, Math.max(4500, chapterCount * 280));
+  return await apiCallJSON(SYS_STORY, user, Math.max(4500, chapterCount * 280), MODEL_CONFIG.outline);
 }
 
 // ── Story Bible System ───────────────────────────────────────
@@ -2196,7 +2239,7 @@ async function generateAlternatives(itemType, currentItem, context, avoidList) {
     "  uniquenessScore (integer 1-10 — how distinctive vs the AVOID list and common tropes),",
     "  reason (string, max 16 words — why this specific choice works)"
   ].filter(Boolean).join("\n");
-  return await apiCallJSON(SYS_ALTERNATIVES, user, 2500);
+  return await apiCallJSON(SYS_ALTERNATIVES, user, 2500, MODEL_CONFIG.alternatives);
 }
 
 // ── Uniqueness UI ────────────────────────────────────────────
@@ -2318,7 +2361,7 @@ async function analyzeStoryHealth(story, outline, bible, chapterProse, chapterSu
     "editorNotes: array of exactly 5 objects: { priority('P1'|'P2'|'P3'), note(max 22 words — specific and actionable), chapter(number or null if story-wide) }",
   ].filter(Boolean).join("\n");
 
-  return await apiCallJSON(sys, user, 4500);
+  return await apiCallJSON(sys, user, 4500, MODEL_CONFIG.analysis);
 }
 
 function AlternativesPanel({ itemType, currentItem, alternatives, loading, onGenerate, onSelect, onClose }) {
@@ -2418,7 +2461,7 @@ async function generateStoryBible(story, outline) {
     "plot: object with mainConflict (1 sentence max 20 words), subplots (array of 2-4 strings, each max 14 words), mysteries (array of 1-3 objects each with name (max 10 words) and status='open'), secrets (array of 1-3 objects each with owner (name), secret (max 12 words), revealedIn (null)), clues (array of 2-4 objects each with chapter (number), clue (max 14 words), payoff (max 10 words)), reveals (array of 2-4 objects each with chapter (number), reveal (max 14 words))",
     "chapters: empty array — populated by the continuity loop after each chapter is written"
   ].filter(Boolean).join("\n");
-  return await apiCallJSON(SYS_BIBLE, user, 3500);
+  return await apiCallJSON(SYS_BIBLE, user, 3500, MODEL_CONFIG.bible);
 }
 
 // Generate a continuity report for a chapter that was just written.
@@ -2496,7 +2539,7 @@ async function generateContinuityReport(story, bible, chapterNum, chapterProse, 
     "",
     "If status='PASS', omit revisionPatch and repairReport entirely."
   ].filter(Boolean).join("\n");
-  return await apiCallJSON(SYS_BIBLE, user, 3000);
+  return await apiCallJSON(SYS_BIBLE, user, 3000, MODEL_CONFIG.continuity);
 }
 
 // Apply a continuity report to the bible, returning a new bible object
@@ -2715,7 +2758,7 @@ async function writeScenesInBatch(story, outline, chapterNum, scenes, bible, opt
   ].join("\n");
 
   const maxTok = Math.min(8000, Math.max(3000, Math.round(totalTarget * 1.5)));
-  const raw = await apiCall(SYS_SCENE, user, maxTok);
+  const raw = await apiCall(SYS_SCENE, user, maxTok, opts.model || MODEL_CONFIG.fastDraft);
 
   const parts = raw.split("<<<SCENE_BREAK>>>");
   const result = {};
@@ -2778,7 +2821,7 @@ async function generateSceneCards(story, outline, chapterNum, bible, opts) {
     "  transitionToNextScene (max 10 words — how we get from this scene to the next, e.g. 'time jump, same evening' or 'POV shift to hero')"
   ].filter(Boolean).join("\n");
 
-  return await apiCallJSON(SYS_BIBLE, user, Math.max(3500, sceneCount * 850));
+  return await apiCallJSON(SYS_BIBLE, user, Math.max(3500, sceneCount * 850), MODEL_CONFIG.sceneCards);
 }
 
 // Write the prose for a single scene
@@ -2847,7 +2890,7 @@ async function writeScene(story, outline, chapterNum, sceneNumber, bible, scene,
   ].filter(Boolean).join("\n");
 
   const maxTok = Math.min(6000, Math.max(2000, Math.round(Math.min(maxPerGen, target*1.2) * 1.6)));
-  return await apiCall(SYS_SCENE, user, maxTok);
+  return await apiCall(SYS_SCENE, user, maxTok, MODEL_CONFIG.sceneProse);
 }
 
 // Continue a partially-written scene (same no-recap discipline as continueChapter)
@@ -2880,7 +2923,7 @@ async function continueScene(story, outline, chapterNum, sceneNumber, bible, sce
     "Continue now. Pick up mid-flow. No preamble. No recap."
   ].join("\n");
 
-  return await apiCall(SYS_SCENE, user, Math.min(6000, Math.max(2000, Math.round(maxThisCall * 1.6))));
+  return await apiCall(SYS_SCENE, user, Math.min(6000, Math.max(2000, Math.round(maxThisCall * 1.6))), MODEL_CONFIG.sceneProse);
 }
 
 // Auto-summarize a completed scene for the continuity tracker
@@ -2903,7 +2946,7 @@ async function summarizeScene(story, bible, chapterNum, sceneNumber, scene, scen
     "  newInformation (array of 0-2 strings, each max 12 words — facts the reader learned),",
     "  unresolvedThreads (array of 0-2 strings, each max 12 words — what carries forward to next scene/chapter)"
   ].join("\n");
-  return await apiCallJSON(SYS_BIBLE, user, 1200);
+  return await apiCallJSON(SYS_BIBLE, user, 1200, MODEL_CONFIG.summarize);
 }
 
 // Wrap-up after all scenes in a chapter are complete — chapter-level continuity + arc updates
@@ -2972,7 +3015,7 @@ async function generatePackagePart1(story, outline, bible) {
     "  backCoverCopy (90-130 words — retail-shelf version, tighter than Amazon, no spoilers)",
     "  oneSentenceHook (1 sentence, max 30 words — the elevator pitch)"
   ].join("\n");
-  return await apiCallJSON(SYS_PUBLISHING, user, 4500);
+  return await apiCallJSON(SYS_PUBLISHING, user, 4500, MODEL_CONFIG.publishing);
 }
 
 // CALL 2: Cover Strategy + Series Branding + Author Brand
@@ -3006,7 +3049,7 @@ async function generatePackagePart2(story, outline, bible, positioning) {
     "  audiencePromise (max 22 words — what readers can count on across the catalog),",
     "  comparableAuthorShelf (max 18 words — describe the shelf this author belongs on; do NOT name specific authors)"
   ].join("\n");
-  return await apiCallJSON(SYS_PUBLISHING, user, 4500);
+  return await apiCallJSON(SYS_PUBLISHING, user, 4500, MODEL_CONFIG.publishing);
 }
 
 // CALL 3: Marketing Assets + Adaptation + Commercial Readiness
@@ -3046,7 +3089,7 @@ async function generatePackagePart3(story, outline, bible, positioning) {
     "  concerns (array of 1-3 strings, each max 16 words — what could limit market reach or be polished),",
     "  publishingRecommendation (max 36 words — concrete next step: 'Pitch agents' / 'KDP direct' / 'Polish for X' / 'Build series first' etc.)"
   ].join("\n");
-  return await apiCallJSON(SYS_PUBLISHING, user, 4500);
+  return await apiCallJSON(SYS_PUBLISHING, user, 4500, MODEL_CONFIG.publishing);
 }
 
 // Convenience function — generates ALL three parts in sequence
@@ -3093,7 +3136,7 @@ async function generateOutlineFromImport(rawOutlineText, story, targetWordCount,
   ].filter(Boolean).join("\n");
 
   const tokenBudget = Math.max(4500, Math.ceil(rawOutlineText.length / 8) + 2000);
-  return await apiCallJSON(SYS_STORY, user, Math.min(8000, tokenBudget));
+  return await apiCallJSON(SYS_STORY, user, Math.min(8000, tokenBudget), MODEL_CONFIG.importOutline);
 }
 
 // ── Import & Continue: extract a Story Bible from an author's existing prose ──
@@ -3127,7 +3170,7 @@ async function generateBibleFromProse(proseText, story, chapterCount) {
     "chapters: array — for each chapter in the prose, create: { number, pov, purpose (max 14 words), majorEvents (array of 2-4 strings), characterChanges (array of 0-3 strings), unresolvedThreads (array of 1-3 strings carrying forward) }"
   ].filter(Boolean).join("\n");
 
-  return await apiCallJSON(SYS_BIBLE, user, 4500);
+  return await apiCallJSON(SYS_BIBLE, user, 4500, MODEL_CONFIG.importProse);
 }
 
 // ── Import & Continue: outline the remaining chapters from the bible snapshot ──
@@ -3190,7 +3233,7 @@ async function generateContinuationOutline(story, bible, writtenChapterCount,
   ].filter(Boolean).join("\n");
 
   const tokenBudget = Math.max(4500, remainingChapters * 250);
-  return await apiCallJSON(SYS_STORY, user, Math.min(8000, tokenBudget));
+  return await apiCallJSON(SYS_STORY, user, Math.min(8000, tokenBudget), MODEL_CONFIG.continuation);
 }
 
 async function writeChapterProse(story, outline, chapterNum, universe, bible, opts) {
@@ -3241,7 +3284,7 @@ async function writeChapterProse(story, outline, chapterNum, universe, bible, op
     "Begin the chapter now — no headers, no labels, just the prose."
   ].filter(Boolean).join("\n");
   const maxTok = Math.min(8000, Math.max(2500, Math.round(((opts && opts.maxWordsPerGen) || 2500) * 1.6)));
-  return await apiCall(SYS_CHAPTER, user, maxTok);
+  return await apiCall(SYS_CHAPTER, user, maxTok, MODEL_CONFIG.prose);
 }
 
 // Continue a partially-written chapter from the exact point it stopped.
@@ -3289,7 +3332,7 @@ async function continueChapter(story, outline, chapterNum, universe, bible, exis
   ].filter(Boolean).join("\n");
 
   const maxTok = Math.min(8000, Math.max(2500, Math.round(maxThisCall * 1.6)));
-  return await apiCall(SYS_CHAPTER, user, maxTok);
+  return await apiCall(SYS_CHAPTER, user, maxTok, MODEL_CONFIG.prose);
 }
 
 // Generate a structured summary of a completed chapter for the continuity tracker.
@@ -3310,7 +3353,7 @@ async function summarizeChapter(story, bible, chapterNum, chapterProse, outline)
     "openThreads: array of 0-3 strings, each max 12 words — what is unresolved and must echo forward",
     "closedThreads: array of 0-2 strings, each max 12 words — what was resolved in this chapter"
   ].join("\n");
-  return await apiCallJSON(SYS_BIBLE, user, 1200);
+  return await apiCallJSON(SYS_BIBLE, user, 1200, MODEL_CONFIG.summarize);
 }
 
 // ── Save Blueprint helpers ────────────────────────────────────
@@ -3588,7 +3631,7 @@ async function generateUniverseLore(universe) {
   userParts.push("futureBookRecommendations: array of 3-5 objects, each with workingTitle (max 6 words), premise (2 sentences max), mainCharacter (name, can be new or existing)");
 
   const user = userParts.join("\n");
-  return await apiCallJSON(sys, user, 4000);
+  return await apiCallJSON(sys, user, 4000, MODEL_CONFIG.universe);
 }
 
 // ── UI Components ─────────────────────────────────────────────
@@ -6268,6 +6311,7 @@ function ChapterBuilder({ story, universe, chapterState }) {
   const [bibleViewerOpen, setBibleViewerOpen] = useState(false);  // Phase 1.5: View toggle
   const [fastDraftMode, setFastDraftMode] = useState(false);      // Phase 1.5: Fast Draft
   const [fastDraftBatchSize, setFastDraftBatchSize] = useState(2);
+  const [fastDraftModel, setFastDraftModel] = useState("claude-sonnet-4-6");
   const [writingBatch, setWritingBatch] = useState(null);          // { ch, scenes:[nums] }
   const [loadingOutline, setLoadingOutline] = useState(false);
   const [buildingBible, setBuildingBible] = useState(false);
@@ -6331,7 +6375,8 @@ function ChapterBuilder({ story, universe, chapterState }) {
         romanceIntensity: story.romanceIntensity || DEFAULT_INTENSITY,
         eroticRomance: story.eroticRomance || DEFAULT_EROTIC,
         streetLitEng: story.streetLitEng || DEFAULT_STREETLIT,
-        suspenseEng: story.suspenseEng || DEFAULT_SUSPENSE
+        suspenseEng: story.suspenseEng || DEFAULT_SUSPENSE,
+        model: fastDraftModel
       });
       setSceneProse(prev => {
         const chMap = { ...(prev[chapterNum] || {}) };
@@ -6340,7 +6385,7 @@ function ChapterBuilder({ story, universe, chapterState }) {
       });
     } catch(e) { setErr(e.message); }
     finally { setWritingBatch(null); }
-  }, [story, outline, bible, setSceneProse, writingBatch]);
+  }, [story, outline, bible, setSceneProse, writingBatch, fastDraftModel]);
 
   // Story Intelligence: add a manual plot thread to the bible
   const addManualThread = useCallback((name) => {
@@ -6886,6 +6931,16 @@ function ChapterBuilder({ story, universe, chapterState }) {
                                      borderRadius:4, fontSize:11, fontFamily:"Nunito, sans-serif" }}>
                             <option value={2}>2 scenes/batch</option>
                             <option value={3}>3 scenes/batch</option>
+                          </select>
+                        )}
+                        {fastDraftMode && (
+                          <select value={fastDraftModel} onChange={e => setFastDraftModel(e.target.value)}
+                            title="Fast Draft model"
+                            style={{ padding:"2px 6px", background:C.card, color:C.text, border:"1px solid "+C.borderLight,
+                                     borderRadius:4, fontSize:11, fontFamily:"Nunito, sans-serif" }}>
+                            {FAST_DRAFT_MODELS.map(m => (
+                              <option key={m.id} value={m.id}>{m.label} · {m.badge}</option>
+                            ))}
                           </select>
                         )}
                         <button onClick={()=>setExpandedChapter(expandedChapter===ch.number ? null : ch.number)}
