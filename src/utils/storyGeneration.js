@@ -224,8 +224,8 @@ export async function generateBlueprint(opts) {
       STREETLIT_DIMENSIONS.forEach(d => L.push("  " + d.label + ": " + (sl[d.key]||2) + "/5 (" + d.scale[(sl[d.key]||2)-1] + ")"));
     }
     if (spActive) {
-      L.push("", "SUSPENSE ENGINE (each 1-5 — mystery / danger / conspiracy / dread / twists):");
-      SUSPENSE_DIMENSIONS.forEach(d => L.push("  " + d.label + ": " + (sp[d.key]||2) + "/5 (" + d.scale[(sp[d.key]||2)-1] + ")"));
+      // Compact single-line format saves ~200 prompt tokens vs. per-dimension verbose format
+      L.push("Suspense calibration: mystery=" + (sp.mysteryLevel||2) + ", danger=" + (sp.dangerLevel||2) + ", conspiracy=" + (sp.conspiracyLevel||2) + ", psychological_tension=" + (sp.psychologicalTension||2) + ", investigation=" + (sp.investigationFocus||2) + ", twist_intensity=" + (sp.twistIntensity||2));
     }
     if (uCat) {
       const cat = URBAN_CATEGORIES[uCat.id];
@@ -377,10 +377,12 @@ export async function generateBlueprint(opts) {
     "readerSatisfactionForecast: integer 0-100 — realistic projection of how satisfied this archetype will be with this specific story premise",
     "potentialRisks: array of 3-5 strings — each max 18 words — specific ways this story could LOSE its primary reader (be concrete: which chapter types, which character behaviors, which pacing choices)",
     "readerExpectations: array of 4-6 strings — each max 18 words — what this reader DEMANDS from every single chapter (not just the book overall)",
-    "storyDNA: object with keys: genreBlend (max 8 words — top 2-3 lanes as a phrase), readerPromise (copy from core.readerPromise), tone (max 8 words), heat (integer — the heat level), heroineWound (max 14 words), heroWound (max 14 words), centralConflict (max 14 words), relationshipObstacle (max 14 words)"
+    "storyDNA: object with keys: genreBlend (max 8 words — top 2-3 lanes as a phrase), readerPromise (copy from core.readerPromise), tone (max 8 words), heat (integer — the heat level), heroineWound (max 14 words), heroWound (max 14 words), centralConflict (max 14 words), relationshipObstacle (max 14 words)",
+    "",
+    "CRITICAL: Return ONLY the JSON object. Start with { and end with }. No markdown, no backticks, no text before or after the JSON. If a field would make the response too long, use a shorter value — but NEVER truncate mid-string. Complete every string value before closing the JSON."
   ].filter(Boolean).join("\n");
 
-  const struct = await apiCallJSON(SYS_STORY, call2, 3500, MODEL_CONFIG.blueprint);
+  const struct = await apiCallJSON(SYS_STORY, call2, 5000, MODEL_CONFIG.blueprint);
   const result = Object.assign({}, core, struct);
   if (urbanDrama) result.urbanDrama = true;
   return result;
