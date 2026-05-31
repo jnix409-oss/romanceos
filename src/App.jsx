@@ -4516,7 +4516,7 @@ const NAV_SECTIONS = [
   ]}
 ];
 
-function Sidebar({ active, onChange, onNewStory, hasStory, storyTitle, universeCount }) {
+function Sidebar({ active, onChange, onNewStory, hasStory, storyTitle, universeCount, saveStatus }) {
   return (
     <aside style={{ width:240, minHeight:"100vh", background:"#F8F7F2", borderRight:"1px solid "+C.faint,
                     padding:"22px 0", display:"flex", flexDirection:"column", flexShrink:0,
@@ -4584,7 +4584,10 @@ function Sidebar({ active, onChange, onNewStory, hasStory, storyTitle, universeC
 
       {/* Footer */}
       <div style={{ padding:"14px 20px", borderTop:"1px solid "+C.faint, color:C.muted, fontSize:10, lineHeight:1.5 }}>
-        <div style={{ fontWeight:600, color:C.amber, marginBottom:3 }}>Private fiction OS</div>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:6 }}>
+          <div style={{ fontWeight:600, color:C.amber }}>Private fiction OS</div>
+          <SaveStatusIndicator status={saveStatus}/>
+        </div>
         <div style={{ fontStyle:"italic" }}>Story → Universe → Launch</div>
       </div>
     </aside>
@@ -5783,9 +5786,133 @@ function ChapterCard({ ch, prose, report, summary, editing, onWrite, onContinue,
   );
 }
 
+// ── Save status indicator (autosave visibility) ──────────────
+function SaveStatusIndicator({ status }) {
+  const configs = {
+    saved:   { icon:"✓", label:"Saved",   color:"#2D8B7A" },
+    saving:  { icon:"↻", label:"Saving…", color:C.amber   },
+    unsaved: { icon:"●", label:"Unsaved", color:C.muted   },
+  };
+  const cfg = configs[status] || configs.saved;
+  return (
+    <div style={{
+      display:"flex", alignItems:"center", gap:5,
+      padding:"3px 10px",
+      background: status==="saved"
+        ? "rgba(45,139,122,0.10)" : "transparent",
+      border:"1px solid " + (status==="saved"
+        ? "rgba(45,139,122,0.25)" : C.borderLight),
+      borderRadius:12,
+      fontSize:10, color:cfg.color, fontWeight:600,
+      letterSpacing:0.5, transition:"all 0.3s",
+    }}>
+      <span style={{
+        fontSize:9,
+        display:"inline-block",
+        animation: status==="saving"
+          ? "obsidianSpin 0.9s linear infinite" : "none"
+      }}>
+        {cfg.icon}
+      </span>
+      {cfg.label}
+    </div>
+  );
+}
+
+// ── Full manuscript export (.md) ─────────────────────────────
+function exportFullManuscript(story, outline, chapterProse, chapterSummaries) {
+  if (!story || !outline) return;
+  const chapters = (outline.chapters || [])
+    .filter(ch => chapterProse[ch.number])
+    .sort((a, b) => a.number - b.number);
+
+  if (chapters.length === 0) {
+    alert("No chapters written yet."); return;
+  }
+
+  const totalWords = chapters.reduce((sum, ch) => {
+    const prose = chapterProse[ch.number] || "";
+    return sum + prose.trim().split(/\s+/).filter(Boolean).length;
+  }, 0);
+
+  const lines = [];
+
+  // Title page
+  lines.push("# " + story.title);
+  lines.push("");
+  if (story.tagline) {
+    lines.push("*" + story.tagline + "*");
+    lines.push("");
+  }
+  lines.push("---");
+  lines.push("");
+  lines.push(`${chapters.length} chapters · ${totalWords.toLocaleString()} words`);
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+
+  // Chapters
+  chapters.forEach(ch => {
+    lines.push("## Chapter " + ch.number + ": " + (ch.title || ""));
+    lines.push("");
+    if (ch.pov) {
+      lines.push(`*${ch.pov} POV · ${ch.arcStage || ""}*`);
+      lines.push("");
+    }
+    lines.push(chapterProse[ch.number].trim());
+    lines.push("");
+    lines.push("---");
+    lines.push("");
+  });
+
+  // Continuity summaries appendix (if any exist)
+  const summaries = chapters.filter(ch => chapterSummaries[ch.number]);
+  if (summaries.length > 0) {
+    lines.push("## Appendix: Chapter Summaries");
+    lines.push("");
+    summaries.forEach(ch => {
+      const s = chapterSummaries[ch.number];
+      lines.push("### Chapter " + ch.number);
+      if (s.summary) lines.push(s.summary);
+      if (s.openThreads && s.openThreads.length) {
+        lines.push("*Open threads: " + s.openThreads.join("; ") + "*");
+      }
+      lines.push("");
+    });
+  }
+
+  const slug = (story.title || "manuscript")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+  const filename = slug + "-manuscript.md";
+  const blob = new Blob([lines.join("\n")], { type:"text/markdown" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── Full story-record backup (.json) ─────────────────────────
+function exportStoryPackage(storyRecord) {
+  if (!storyRecord) return;
+  const slug = ((storyRecord.blueprint && storyRecord.blueprint.title)
+    || storyRecord.title || "story")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+  const filename = slug + "-story-package.json";
+  const blob = new Blob(
+    [JSON.stringify(storyRecord, null, 2)],
+    { type:"application/json" }
+  );
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 // ── Publishing Studio Component ──────────────────────────────
 
-function ChapterBuilder({ story, universe, chapterState }) {
+function ChapterBuilder({ story, universe, chapterState, saveStatus, forceSave, activeStoryId }) {
   // Manuscript spec
   const [targetWordCount, setTargetWordCount] = useState(80000);
   const [chapterCount, setChapterCount] = useState(32);
@@ -6248,6 +6375,16 @@ function ChapterBuilder({ story, universe, chapterState }) {
           <div style={{ color:C.text, fontFamily:"Cormorant Garamond, serif", fontSize:22, fontWeight:600 }}>
             Chapter Architecture
           </div>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:8 }}>
+            <SaveStatusIndicator status={saveStatus}/>
+            <button onClick={forceSave}
+              title="Save all progress · Cmd+S"
+              style={{ padding:"5px 12px", background:"transparent", color:C.gold,
+                       border:"1px solid "+C.gold, borderRadius:6, fontSize:11, fontWeight:600,
+                       cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+              ↓ Save Now
+            </button>
+          </div>
         </div>
         {!outline && (
           <button onClick={buildOutline} disabled={loadingOutline}
@@ -6293,6 +6430,45 @@ function ChapterBuilder({ story, universe, chapterState }) {
           maxWordsPerGen={maxWordsPerGen} onMaxChange={setMaxWordsPerGen}
           avgWordsPerChapter={avgWordsPerChapter}/>
       )}
+
+      {/* Export / save actions — once an outline exists and ≥1 chapter is written */}
+      {outline && Object.values(chapterProse).some(Boolean) && (() => {
+        const writtenCount = Object.values(chapterProse).filter(Boolean).length;
+        const totalManuscriptWords = Object.values(chapterProse).filter(Boolean)
+          .reduce((sum, p) => sum + p.trim().split(/\s+/).filter(Boolean).length, 0);
+        return (
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center",
+                        padding:"10px 0", borderBottom:"1px solid "+C.faint, marginBottom:14 }}>
+            <div style={{ color:C.muted, fontSize:11, marginRight:4 }}>
+              {writtenCount} of {outline.chapters.length} chapters · {totalManuscriptWords.toLocaleString()} words
+            </div>
+            <div style={{ flex:1 }}/>
+            <button onClick={forceSave}
+              title="Save all progress · Cmd+S"
+              style={{ padding:"5px 12px", background:"transparent", color:C.gold,
+                       border:"1px solid "+C.gold, borderRadius:6, fontSize:11, fontWeight:600,
+                       cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+              ↓ Save
+            </button>
+            <button onClick={() => exportFullManuscript(story, outline, chapterProse, chapterSummaries)}
+              style={{ padding:"5px 12px", background:"transparent", color:C.amber,
+                       border:"1px solid "+C.amber, borderRadius:6, fontSize:11, fontWeight:600,
+                       cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+              ↓ Export Manuscript
+            </button>
+            <button onClick={() => {
+                const stories = loadStories();
+                const record = stories.find(s => s.id === activeStoryId);
+                exportStoryPackage(record);
+              }}
+              style={{ padding:"5px 12px", background:"transparent", color:C.muted,
+                       border:"1px solid "+C.borderLight, borderRadius:6, fontSize:11, fontWeight:600,
+                       cursor:"pointer", fontFamily:"Nunito, sans-serif" }}>
+              ↓ Backup JSON
+            </button>
+          </div>
+        );
+      })()}
 
       {outline && (
         <div style={{ marginBottom:16, padding:"10px 14px", background:C.card, border:"1px solid "+C.borderLight, borderRadius:8,
@@ -6750,7 +6926,7 @@ function ActivatedPatternsCard({ patterns, calibration, currentSpice, currentInt
   );
 }
 
-function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activeUniverse, activatedPatterns, chapterState }) {
+function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activeUniverse, activatedPatterns, chapterState, saveStatus, forceSave, activeStoryId }) {
   return (
     <div style={{ marginTop:28 }}>
       <div style={{ padding:"28px 30px", background:"linear-gradient(135deg, "+C.surface+", "+C.card+")",
@@ -6902,7 +7078,8 @@ function Blueprint({ story, universes, activeUniverseId, onSaveToUniverse, activ
 
       {/* Phase 1.5: MarketDashboard + ActivatedPatternsCard moved to Market Intelligence */}
       <SaveBlueprint story={story} universes={universes} activeUniverseId={activeUniverseId} onSaveToUniverse={onSaveToUniverse}/>
-      <ChapterBuilder story={story} universe={activeUniverse} chapterState={chapterState}/>
+      <ChapterBuilder story={story} universe={activeUniverse} chapterState={chapterState}
+        saveStatus={saveStatus} forceSave={forceSave} activeStoryId={activeStoryId}/>
     </div>
   );
 }
@@ -7482,6 +7659,7 @@ export default function App() {
   // ── Import & Continue ──
   const [userConcept, setUserConcept] = useState("");        // optional New Story concept
   const [showingImport, setShowingImport] = useState(false); // Import Existing Work flow
+  const [saveStatus, setSaveStatus] = useState("saved");     // "saved" | "saving" | "unsaved"
 
   // ── Story Intelligence Layer ──
   const [storyDNALocked, setStoryDNALocked] = useState(false);
@@ -8072,13 +8250,16 @@ export default function App() {
   useEffect(() => {
     if (skipAutosaveRef.current) { skipAutosaveRef.current = false; return; }
     if (!activeStoryId) return;
+    setSaveStatus("unsaved");   // pending changes until the debounce fires
     const t = setTimeout(() => {
+      setSaveStatus("saving");
       setStories(prev => {
         const idx = prev.findIndex(s => s.id === activeStoryId);
         if (idx === -1) return prev;
         const next = [...prev]; next[idx] = buildRecord(prev[idx]);
         saveStories(next); return next;
       });
+      setSaveStatus("saved");
     }, 1500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -8086,6 +8267,45 @@ export default function App() {
       setting, city, family, intensity, externalConflict, relationshipObstacle, familyInfluence,
       spiceLevel, romanceIntensity, eroticRomance, streetLitEng, suspenseEng, outline, bible, bibleLocked, storyDNALocked, chapterProse, chapterReports, chapterSummaries,
       chapterVersions, chapterSceneCards, sceneProse, sceneSummaries, sceneLocked, bookPackage]);
+
+  // Manual save — flush all current story state to localStorage immediately
+  const forceSave = useCallback(() => {
+    if (!activeStoryId) return;
+    setSaveStatus("saving");
+    try {
+      const stories = loadStories();
+      const record = stories.find(s => s.id === activeStoryId);
+      if (!record) { setSaveStatus("unsaved"); return; }
+      const updated = {
+        ...record,
+        updatedAt: Date.now(),
+        blueprint: story,
+        outline, bible,
+        chapterProse, chapterReports, chapterSummaries,
+        chapterSceneCards, sceneProse, sceneSummaries, sceneLocked,
+        chapterVersions, bookPackage,
+      };
+      saveStories(stories.map(s => s.id === activeStoryId ? updated : s));
+      setSaveStatus("saved");
+    } catch(e) {
+      setSaveStatus("unsaved");
+    }
+  }, [activeStoryId, story, outline, bible, chapterProse,
+      chapterReports, chapterSummaries, chapterSceneCards,
+      sceneProse, sceneSummaries, sceneLocked,
+      chapterVersions, bookPackage]);
+
+  // Cmd/Ctrl+S → manual save from anywhere
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        forceSave();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [forceSave]);
 
   // Hydrate the active story once on mount so a refresh restores your place
   useEffect(() => {
@@ -8112,6 +8332,7 @@ export default function App() {
   return (
     <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"Nunito, sans-serif" }}>
       <style>{FONT_CSS}</style>
+      <style>{`@keyframes obsidianSpin { to { transform: rotate(360deg); } }`}</style>
       <div style={{ display:"flex", minHeight:"100vh" }}>
         <Sidebar
           active={activeSection}
@@ -8119,7 +8340,8 @@ export default function App() {
           onNewStory={handleNewStory}
           hasStory={!!story}
           storyTitle={activeStoryRec ? activeStoryRec.title : null}
-          universeCount={universes.length}/>
+          universeCount={universes.length}
+          saveStatus={saveStatus}/>
 
         <main style={{ flex:1, padding:"28px 32px", overflowX:"hidden" }}>
           <div style={{ maxWidth:1040, margin:"0 auto" }}>
@@ -8559,7 +8781,10 @@ export default function App() {
             activeUniverse={activeUniverse}
             onSaveToUniverse={saveBookToUniverse}
             activatedPatterns={activatedPatterns}
-            chapterState={chapterState}/>
+            chapterState={chapterState}
+            saveStatus={saveStatus}
+            forceSave={forceSave}
+            activeStoryId={activeStoryId}/>
         )}
 
               </>
