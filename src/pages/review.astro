@@ -5,6 +5,8 @@ import { DIMENSIONS } from '../data/dimensions';
 import { LENSES } from '../data/lenses';
 
 const companyNames = companies.map(c => c.name).sort();
+const companyMetros = Object.fromEntries(companies.map(c => [c.name, c.hq_metro]));
+const metros = [...new Set(companies.map(c => c.hq_metro))].sort();
 ---
 <BaseLayout title="Leave a Review" description="Share your anonymous experience of belonging at your company.">
   <div class="max-w-2xl mx-auto px-4 py-12 sm:py-16">
@@ -34,33 +36,33 @@ const companyNames = companies.map(c => c.name).sort();
       </p>
 
       <!-- 1. Company -->
-      <div>
+      <div class="relative">
         <label for="company" class="block text-sm font-semibold text-plum mb-1">Company *</label>
         <input
           type="text"
           name="company"
           id="company"
-          list="company-list"
           required
+          autocomplete="off"
           placeholder="Start typing a company name..."
           class="w-full px-4 py-3 rounded-lg border border-border bg-white text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
         />
-        <datalist id="company-list">
-          {companyNames.map(name => <option value={name} />)}
-        </datalist>
+        <ul id="company-dropdown" class="hidden absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-white border border-border rounded-lg shadow-lg"></ul>
         <p class="text-xs text-ink/40 mt-1">If your company isn't listed, type it in — we'll add it to the directory.</p>
       </div>
 
       <!-- 2. Metro -->
-      <div>
+      <div class="relative">
         <label for="metro" class="block text-sm font-semibold text-plum mb-1">Metro area</label>
         <input
           type="text"
           name="metro"
           id="metro"
+          autocomplete="off"
           placeholder="e.g., Nashville, New York, Remote"
           class="w-full px-4 py-3 rounded-lg border border-border bg-white text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
         />
+        <ul id="metro-dropdown" class="hidden absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-white border border-border rounded-lg shadow-lg"></ul>
       </div>
 
       <!-- 3. Tenure -->
@@ -134,7 +136,7 @@ const companyNames = companies.map(c => c.name).sort();
         </div>
 
         <div id="lens-options" class="hidden">
-          <p class="text-sm font-semibold text-plum mb-2">Pick up to 2 lenses:</p>
+          <p class="text-sm font-semibold text-plum mb-2">Select any that apply:</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {LENSES.map(lens => (
               <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-white/50 cursor-pointer">
@@ -208,6 +210,51 @@ const companyNames = companies.map(c => c.name).sort();
     </form>
   </div>
 
+  <script define:vars={{ companyNames, companyMetros, metros }}>
+    function setupAutocomplete(inputId, dropdownId, items, onSelect) {
+      const input = document.getElementById(inputId);
+      const dropdown = document.getElementById(dropdownId);
+      if (!input || !dropdown) return;
+
+      input.addEventListener('input', () => {
+        const val = input.value.toLowerCase().trim();
+        dropdown.innerHTML = '';
+        if (val.length < 1) { dropdown.classList.add('hidden'); return; }
+        const matches = items.filter(item => item.toLowerCase().includes(val)).slice(0, 10);
+        if (matches.length === 0) { dropdown.classList.add('hidden'); return; }
+        matches.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = item;
+          li.className = 'px-4 py-2 cursor-pointer hover:bg-cream text-sm text-ink';
+          li.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            input.value = item;
+            dropdown.classList.add('hidden');
+            if (onSelect) onSelect(item);
+          });
+          dropdown.appendChild(li);
+        });
+        dropdown.classList.remove('hidden');
+      });
+
+      input.addEventListener('focus', () => {
+        if (input.value.trim().length >= 1) input.dispatchEvent(new Event('input'));
+      });
+
+      input.addEventListener('blur', () => {
+        setTimeout(() => dropdown.classList.add('hidden'), 150);
+      });
+    }
+
+    const metroInput = document.getElementById('metro');
+    setupAutocomplete('company', 'company-dropdown', companyNames, (name) => {
+      if (companyMetros[name] && metroInput && !metroInput.value) {
+        metroInput.value = companyMetros[name];
+      }
+    });
+    setupAutocomplete('metro', 'metro-dropdown', metros, null);
+  </script>
+
   <script>
     const consent = document.getElementById('lens-consent');
     const lensOptions = document.getElementById('lens-options');
@@ -219,18 +266,6 @@ const companyNames = companies.map(c => c.name).sort();
       lensCheckboxes.forEach(cb => {
         (cb as HTMLInputElement).disabled = !checked;
         if (!checked) (cb as HTMLInputElement).checked = false;
-      });
-    });
-
-    let checkedCount = 0;
-    lensCheckboxes.forEach(cb => {
-      cb.addEventListener('change', () => {
-        checkedCount = Array.from(lensCheckboxes).filter(c => (c as HTMLInputElement).checked).length;
-        lensCheckboxes.forEach(c => {
-          if (!(c as HTMLInputElement).checked) {
-            (c as HTMLInputElement).disabled = checkedCount >= 2;
-          }
-        });
       });
     });
 
