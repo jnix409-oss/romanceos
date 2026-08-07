@@ -1,46 +1,77 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import companies from '../data/companies.json';
-import { getThreshold } from '../data/thresholds';
 
 const companyNames = companies.map(c => c.name).sort();
 
 const totalReviews = companies.reduce((sum, c) => sum + (c.reviewCount ?? 0), 0);
 const employersWithReviews = companies.filter(c => (c.reviewCount ?? 0) > 0).length;
-
-const featuredCompanies = companies.filter(c => (c as any).featured).sort((a, b) => a.name.localeCompare(b.name));
-const threshold = getThreshold();
 ---
-<BaseLayout title="Home" description="See if you'll belong — before you take the job. Anonymous workplace belonging reviews filtered through identity lenses.">
-  <!-- Hero -->
+<BaseLayout title="Belongary — The stories nobody got to tell the next person" description="Glassdoor tells you what people think of a company. Belongary tells you what people like you found there.">
+  <!-- Hero + Inline Story Flow -->
   <section class="bg-gradient-to-b from-cream to-cream-light relative overflow-hidden">
-    <div class="max-w-5xl mx-auto px-4 py-16 sm:py-24 text-center relative z-10">
-      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-heading font-bold text-plum leading-tight mb-6">
-        The stories nobody got to tell the next person.
-      </h1>
-      <p class="text-lg sm:text-xl text-ink/70 max-w-2xl mx-auto mb-10">
-        Glassdoor tells you what people think of a company. Belongary tells you what people like you found there.
-      </p>
+    <div class="max-w-5xl mx-auto px-4 py-16 sm:py-24 relative z-10">
+      <div class="text-center mb-10">
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-heading font-bold text-plum leading-tight mb-6">
+          The stories nobody got to tell the next person.
+        </h1>
+        <p class="text-lg sm:text-xl text-ink/70 max-w-2xl mx-auto">
+          Glassdoor tells you what people think of a company. Belongary tells you what people like you found there.
+        </p>
+      </div>
 
-      <form action="/review" method="GET" class="max-w-lg mx-auto relative text-left">
-        <label for="hero-company" class="block text-sm font-semibold text-plum mb-2">
-          Where do you work, or where did you?
-        </label>
-        <input
-          type="text"
-          name="company"
-          id="hero-company"
-          autocomplete="off"
-          placeholder="Start typing a company name"
-          class="w-full px-5 py-3 rounded-lg border border-border bg-white text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral text-lg shadow-sm"
-        />
-        <ul id="hero-dropdown" class="hidden absolute z-10 w-full mt-1 max-h-56 overflow-y-auto bg-white border border-border rounded-lg shadow-lg"></ul>
-      </form>
+      <div class="max-w-xl mx-auto">
+        <div class="flex flex-col md:flex-row gap-8 items-start">
+          <!-- Form column -->
+          <div class="flex-1 w-full">
+            <!-- Step 1: Company -->
+            <div id="step-1" class="relative">
+              <label for="hero-company" class="block text-sm font-semibold text-plum mb-2">
+                Where do you work, or where did you?
+              </label>
+              <input
+                type="text"
+                id="hero-company"
+                autocomplete="off"
+                placeholder="Start typing a company name"
+                class="w-full px-5 py-3 rounded-lg border border-border bg-white text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral text-lg shadow-sm"
+              />
+              <ul id="hero-dropdown" class="hidden absolute z-10 w-full mt-1 max-h-56 overflow-y-auto bg-white border border-border rounded-lg shadow-lg"></ul>
+            </div>
 
-      <div class="flex flex-col gap-1 mt-6 text-sm text-ink/60">
-        <p>· We never ask for your work email.</p>
-        <p>· Nothing publishes until 5 people from a company have shared.</p>
-        <p>· Employers can't edit, remove, or pay to hide what you write.</p>
+            <!-- Step 2: Story (hidden until company entered) -->
+            <div id="step-2" class="hidden mt-6">
+              <div class="flex items-center gap-2 mb-4">
+                <span id="company-badge" class="inline-flex items-center gap-1 px-3 py-1 bg-coral/10 text-coral text-sm font-medium rounded-full"></span>
+                <button type="button" id="change-company" class="text-xs text-ink/40 hover:text-ink/60 transition-colors">change</button>
+              </div>
+              <label for="hero-story" class="block text-sm font-semibold text-plum mb-2">
+                What would you tell someone like you before they take this job?
+              </label>
+              <textarea
+                id="hero-story"
+                rows="5"
+                placeholder="Be honest — this is anonymous."
+                class="w-full px-4 py-3 rounded-lg border border-border bg-white text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral resize-none shadow-sm"
+              ></textarea>
+              <p class="text-xs text-ink/40 mt-1">No names, please — yours or anyone else's.</p>
+              <a
+                id="continue-btn"
+                href="/review"
+                class="mt-4 inline-flex items-center justify-center w-full px-6 py-3 bg-coral text-white font-semibold rounded-lg hover:bg-coral/90 transition-colors shadow-sm"
+              >
+                Continue &rarr;
+              </a>
+            </div>
+          </div>
+
+          <!-- Trust lines (always visible, beside the form on desktop) -->
+          <div class="md:w-48 md:pt-8 flex flex-col gap-2 text-sm text-ink/60">
+            <p>· We never ask for your work email.</p>
+            <p>· Nothing publishes until 5 people from a company have shared.</p>
+            <p>· Employers can't edit, remove, or pay to hide what you write.</p>
+          </div>
+        </div>
       </div>
     </div>
     <!-- Decorative brand pattern -->
@@ -97,51 +128,14 @@ const threshold = getThreshold();
     </div>
   </section>
 
-  <!-- Featured Companies -->
+  <!-- Founder Teaser -->
   <section class="py-16 sm:py-20 bg-white/50">
-    <div class="max-w-5xl mx-auto px-4">
-      <h2 class="text-2xl sm:text-3xl font-heading font-bold text-plum text-center mb-4">
-        Nashville launch — help us start here
-      </h2>
-      <p class="text-ink/60 text-center mb-12 max-w-xl mx-auto">
-        We're starting with Nashville's biggest employers. Be one of the first to share your story.
-      </p>
-      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {featuredCompanies.map(company => (
-          <a href={`/company/${company.slug}`} class="block bg-white rounded-xl border border-border p-6 hover:shadow-md hover:border-plum/20 transition-all group">
-            <div class="mb-3">
-              <h3 class="font-heading font-semibold text-plum group-hover:text-coral transition-colors">{company.name}</h3>
-              <p class="text-sm text-ink/50">{company.industry} · {company.hq_metro}</p>
-            </div>
-            <div class="flex items-center gap-2">
-              <div class="flex-1 bg-light rounded-full h-2 overflow-hidden">
-                <div
-                  class="h-full rounded-full bg-coral/40"
-                  style={`width: ${Math.min(100, Math.round(((company as any).reviewCount / threshold) * 100))}%`}
-                ></div>
-              </div>
-              <span class="text-xs text-ink/40 whitespace-nowrap">{(company as any).reviewCount} / {threshold}</span>
-            </div>
-          </a>
-        ))}
-      </div>
-    </div>
-  </section>
-
-  <!-- Founder Block -->
-  <section class="py-16 sm:py-20">
     <div class="max-w-2xl mx-auto px-4">
-      <h2 class="text-2xl font-heading font-bold text-plum mb-4">Why I built this</h2>
+      <h2 class="text-2xl font-heading font-bold text-plum mb-4">Why this exists</h2>
       <p class="text-ink/70 leading-relaxed mb-4">
-        I spent 18 years in HR — the person who was supposed to make the workplace better. I watched companies spend millions on engagement surveys that went nowhere, employer branding that papered over real problems, and DEI programs that measured everything except whether people actually belonged.
+        I spent 18 years in HR watching the same cycle: engagement surveys nobody acted on, employer branding that hid the truth, and DEI programs that measured everything except whether people actually belonged. The ones who needed honest answers most — the people deciding whether to take the job — never got them.
       </p>
-      <p class="text-ink/70 leading-relaxed mb-4">
-        The people who needed the truth most — the ones deciding whether to take the job, stay in the job, or leave the job — never got it. Not from Glassdoor, not from the recruiter, and definitely not from the career page.
-      </p>
-      <p class="text-ink/70 leading-relaxed mb-6">
-        Belongary is the thing I wish had existed for every candidate I interviewed and every employee I couldn't protect.
-      </p>
-      <a href="/about" class="text-coral font-semibold hover:text-coral/80 transition-colors">
+      <a href="/founder" class="text-coral font-semibold hover:text-coral/80 transition-colors">
         Read the full story &rarr;
       </a>
     </div>
@@ -154,7 +148,7 @@ const threshold = getThreshold();
         Stay in the loop
       </h2>
       <p class="text-ink/60 mb-8">
-        Get notified when new companies are added, and be the first to know about new features.
+        Want to know when scores go live for your company? Leave an email — we only use it for that.
       </p>
       <form
         name="waitlist"
@@ -185,14 +179,48 @@ const threshold = getThreshold();
   </section>
 
   <script define:vars={{ companyNames }}>
-    // Hero autocomplete
-    function setupHeroAutocomplete() {
-      const input = document.getElementById('hero-company');
-      const dropdown = document.getElementById('hero-dropdown');
-      if (!input || !dropdown) return;
+    const companyInput = document.getElementById('hero-company');
+    const dropdown = document.getElementById('hero-dropdown');
+    const step2 = document.getElementById('step-2');
+    const companyBadge = document.getElementById('company-badge');
+    const changeBtn = document.getElementById('change-company');
+    const storyInput = document.getElementById('hero-story');
+    const continueBtn = document.getElementById('continue-btn');
 
-      input.addEventListener('input', () => {
-        const val = input.value.toLowerCase().trim();
+    let selectedCompany = '';
+
+    function showStep2(name) {
+      selectedCompany = name;
+      if (companyBadge) companyBadge.textContent = name;
+      if (companyInput) companyInput.closest('#step-1')?.classList.add('hidden');
+      step2?.classList.remove('hidden');
+      storyInput?.focus();
+      updateContinueLink();
+    }
+
+    function showStep1() {
+      selectedCompany = '';
+      if (companyInput) {
+        companyInput.value = '';
+        companyInput.closest('#step-1')?.classList.remove('hidden');
+        companyInput.focus();
+      }
+      step2?.classList.add('hidden');
+    }
+
+    function updateContinueLink() {
+      if (!continueBtn) return;
+      const story = storyInput?.value?.trim() || '';
+      const params = new URLSearchParams();
+      if (selectedCompany) params.set('company', selectedCompany);
+      if (story) params.set('story', story);
+      continueBtn.href = '/review?' + params.toString();
+    }
+
+    // Autocomplete
+    if (companyInput && dropdown) {
+      companyInput.addEventListener('input', () => {
+        const val = companyInput.value.toLowerCase().trim();
         dropdown.innerHTML = '';
         if (val.length < 1) { dropdown.classList.add('hidden'); return; }
         const matches = companyNames.filter(item => item.toLowerCase().includes(val)).slice(0, 8);
@@ -203,23 +231,38 @@ const threshold = getThreshold();
           li.className = 'px-4 py-2 cursor-pointer hover:bg-cream text-sm text-ink';
           li.addEventListener('mousedown', (e) => {
             e.preventDefault();
-            input.value = item;
+            showStep2(item);
             dropdown.classList.add('hidden');
-            // Submit the form
-            input.closest('form')?.submit();
           });
           dropdown.appendChild(li);
         });
         dropdown.classList.remove('hidden');
       });
 
-      input.addEventListener('focus', () => {
-        if (input.value.trim().length >= 1) input.dispatchEvent(new Event('input'));
+      companyInput.addEventListener('focus', () => {
+        if (companyInput.value.trim().length >= 1) companyInput.dispatchEvent(new Event('input'));
       });
-      input.addEventListener('blur', () => {
+      companyInput.addEventListener('blur', () => {
         setTimeout(() => dropdown.classList.add('hidden'), 150);
       });
+
+      // Allow Enter to submit free-text company name
+      companyInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const val = companyInput.value.trim();
+          if (val) {
+            dropdown.classList.add('hidden');
+            showStep2(val);
+          }
+        }
+      });
     }
-    setupHeroAutocomplete();
+
+    // Change company button
+    changeBtn?.addEventListener('click', showStep1);
+
+    // Update continue link as story is typed
+    storyInput?.addEventListener('input', updateContinueLink);
   </script>
 </BaseLayout>

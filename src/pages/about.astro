@@ -1,56 +1,80 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { DIMENSIONS } from '../data/dimensions';
+import { LENSES } from '../data/lenses';
+import { getThreshold } from '../data/thresholds';
+import { MIN_REVIEWS_SENSITIVE_LENS } from '../config';
 ---
-<BaseLayout title="About" description="The story behind Belongary and why it exists.">
+<BaseLayout title="About" description="What Belongary is, how it works, and who's behind it.">
   <div class="max-w-3xl mx-auto px-4 py-12 sm:py-16">
     <h1 class="text-3xl sm:text-4xl font-heading font-bold text-plum mb-8">About Belongary</h1>
 
     <div class="space-y-6 text-ink/80 leading-relaxed">
       <p class="text-lg">
-        Belongary was born from a simple observation: the people who most need to know whether they'll belong at a company are the least likely to get an honest answer before they accept the offer.
+        Belongary is an anonymous workplace belonging review platform. We ask one question that most review sites skip: <em>would you tell someone like you to take this job?</em>
+      </p>
+
+      <p>
+        Every review includes a free-text story, a headline recommendation (yes / no / depends), and ratings across eight dimensions of belonging. Reviewers can optionally tag their review with an identity lens so scores can be filtered by perspective — but only in aggregate, never individually.
       </p>
 
       <div class="bg-cream rounded-xl border border-border p-8 my-8">
-        <p class="text-lg font-heading font-semibold text-plum mb-3">
-          "Would you tell someone like you to take this job?"
-        </p>
-        <p class="text-ink/60">
-          That's the question we ask. Not "rate your employer." Not "how many stars." Just: would you recommend this place to someone who shares your identity, your background, your lens on the world?
-        </p>
+        <h2 class="text-xl font-heading font-semibold text-plum mb-4">How Scores Work</h2>
+        <ul class="space-y-3 text-ink/70 text-sm">
+          <li class="flex items-start gap-2">
+            <span class="text-coral font-bold mt-0.5">·</span>
+            <span>Company scores go live after <strong>{getThreshold()} reviews</strong> from that company. Below that, only a progress bar is shown.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-coral font-bold mt-0.5">·</span>
+            <span>Identity lens scores require <strong>{MIN_REVIEWS_SENSITIVE_LENS} reviews</strong> sharing the same lens at the same company before they appear.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-coral font-bold mt-0.5">·</span>
+            <span>Companies cannot pay to hide, edit, or remove reviews. Moderation is limited to removing content that names individuals or contains slurs.</span>
+          </li>
+        </ul>
       </div>
 
+      <h2 class="text-2xl font-heading font-semibold text-plum mt-10 mb-4">The Eight Dimensions</h2>
       <p>
-        Employer branding is polished. Glassdoor reviews are generic. Neither tells a Black woman whether she'll be sponsored for leadership, or tells a neurodivergent engineer whether the culture actually accommodates different working styles, or tells a working parent whether flexibility is real or performative.
+        Every review rates these eight dimensions of belonging, each scored 1–5:
+      </p>
+      <div class="grid sm:grid-cols-2 gap-3 mt-4">
+        {DIMENSIONS.map(dim => (
+          <div class="flex items-center gap-3 p-3 bg-white rounded-lg border border-border">
+            <img src={dim.icon} alt="" width="20" height="20" class="shrink-0" aria-hidden="true" />
+            <span class="text-sm font-medium text-plum">{dim.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <h2 class="text-2xl font-heading font-semibold text-plum mt-10 mb-4">Identity Lenses</h2>
+      <p>
+        Reviewers can optionally tag their review with one or more identity lenses. When {MIN_REVIEWS_SENSITIVE_LENS} or more people from the same company share a lens, that lens's aggregate scores appear on the company profile — never tied to a single review.
+      </p>
+      <div class="flex flex-wrap gap-2 mt-4">
+        {LENSES.map(lens => (
+          <span class="px-3 py-1 bg-cream text-ink/60 text-sm rounded-full border border-border">{lens.label}</span>
+        ))}
+      </div>
+
+      <h2 class="text-2xl font-heading font-semibold text-plum mt-10 mb-4">Who We Are</h2>
+      <p>
+        Belongary was founded by someone who spent 18 years in HR and got tired of watching the same cycle: engagement surveys nobody acted on, employer branding that hid the truth, and people finding out too late that the culture they were sold wasn't the one they got.
+      </p>
+      <p>
+        <a href="/founder" class="text-coral font-semibold hover:text-coral/80 transition-colors">Read the founder's full story &rarr;</a>
       </p>
 
+      <h2 class="text-2xl font-heading font-semibold text-plum mt-10 mb-4">Contact</h2>
       <p>
-        Belongary exists because belonging isn't one thing. It's different for everyone, and the only people qualified to report on it are the people living it. We built a platform that respects that complexity:
-      </p>
-
-      <ul class="list-disc pl-6 space-y-2 text-ink/70">
-        <li>Identity lenses you choose, not demographic boxes we impose</li>
-        <li>No work-email verification — we don't gatekeep who gets to speak</li>
-        <li>Suppression thresholds that protect anonymity while showing honest numbers</li>
-        <li>Your words, unedited — we reject, we never rewrite</li>
-      </ul>
-
-      <h2 class="text-2xl font-heading font-semibold text-plum mt-10 mb-4">The Vision</h2>
-
-      <p>
-        We started with healthcare because it's an industry where belonging gaps have real consequences — for workers and for patients. But Belongary is for every industry, every company, every worker who's ever wondered whether they'd truly fit.
-      </p>
-
-      <p>
-        Our goal isn't to shame companies. It's to create a feedback loop that makes workplaces better. When companies see how belonging scores differ across identity lenses, they have actionable data to close those gaps. When workers can see those scores before accepting an offer, they can make informed decisions.
-      </p>
-
-      <p>
-        Truth, filtered through the lenses that matter. That's Belongary.
+        Questions, concerns, or removal requests: <a href="mailto:hello@belongary.com" class="text-coral hover:text-coral/80 transition-colors">hello@belongary.com</a>
       </p>
 
       <div class="mt-10 text-center">
-        <a href="/review" class="inline-flex items-center justify-center px-8 py-3 bg-coral text-white font-semibold rounded-lg hover:bg-coral/90 transition-colors shadow-sm">
-          Add Your Voice
+        <a href="/" class="inline-flex items-center justify-center px-8 py-3 bg-coral text-white font-semibold rounded-lg hover:bg-coral/90 transition-colors shadow-sm">
+          Share Your Story
         </a>
       </div>
     </div>
