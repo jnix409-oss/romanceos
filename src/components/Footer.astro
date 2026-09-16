@@ -1,4 +1,6 @@
 ---
+import Logo from './Logo.astro';
+
 const footerLinks = [
   { href: '/methodology', label: 'Methodology' },
   { href: '/guidelines', label: 'Community Guidelines' },
@@ -12,7 +14,9 @@ const footerLinks = [
   <div class="max-w-6xl mx-auto px-4 py-12">
     <div class="flex flex-col md:flex-row justify-between gap-8">
       <div>
-        <p class="font-heading text-xl font-bold text-light mb-2">Belongary</p>
+        <a href="/" class="inline-block mb-2" aria-label="Belongary home">
+          <Logo height={28} dark />
+        </a>
         <p class="text-sm text-light/60 max-w-xs">
           Glassdoor tells you what people think of a company. Belongary tells you what people like you found there.
         </p>
