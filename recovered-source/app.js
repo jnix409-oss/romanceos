@@ -69389,7 +69389,8 @@ async function dh(e, t, r) {
     a = new TextDecoder(),
     s = "",
     l = "",
-    u = null;
+    u = null,
+    __stop = null;
   try {
     for (;;) {
       let { done: A, value: o } = await i.read();
@@ -69409,7 +69410,9 @@ async function dh(e, t, r) {
         }
         x.type === "content_block_delta" && x.delta?.type === "text_delta"
           ? (l += x.delta.text)
-          : x.type === "error" && (u = x.error?.message || "API stream error");
+          : x.type === "message_delta" && x.delta?.stop_reason
+            ? (__stop = x.delta.stop_reason)
+            : x.type === "error" && (u = x.error?.message || "API stream error");
       }
     }
   } catch (A) {
@@ -69417,7 +69420,14 @@ async function dh(e, t, r) {
   }
   if (u) throw new Error(u);
   let A = l.replace(/```json|```/g, "").trim();
-  if (!A) throw new Error("Empty response");
+  if (!A)
+    throw new Error(
+      __stop === "max_tokens"
+        ? "Empty response: the model ran out of room before writing. Try again, or pick a different model in Settings."
+        : __stop === "refusal"
+          ? "The model declined this request. Try adjusting the story settings."
+          : "Empty response" + (__stop ? " (stop: " + __stop + ")" : " (connection closed early; try again)"),
+    );
   return A;
 }
 async function zA(e, t, r) {

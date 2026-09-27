@@ -44,17 +44,26 @@ export default async (request) => {
   }
   body.max_tokens = Math.min(Number(body.max_tokens) || 1500, MAX_TOKENS_CAP);
 
+  // Sonnet 5+ think by default, and thinking counts against max_tokens — with the
+  // app's 1.5k–4.5k budgets that can leave zero tokens for the actual text
+  // ("Empty response"), and it eats into Netlify's 60s streaming limit. The app
+  // wants direct prose/JSON, so turn thinking off unless the caller set it.
+  const wantsDefaultThinking = body.thinking === undefined;
+  const firstBody = wantsDefaultThinking ? { ...body, thinking: { type: "disabled" } } : body;
+
   let resp;
   try {
-    resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify(body),
-    });
+    resp = await callAnthropic(key, firstBody);
+    // If a model rejects `thinking: disabled`, retry without it but with more room.
+    if (wantsDefaultThinking && resp.status === 400) {
+      const errText = await resp.clone().text();
+      if (/thinking/i.test(errText)) {
+        resp = await callAnthropic(key, {
+          ...body,
+          max_tokens: Math.min(body.max_tokens * 3, MAX_TOKENS_CAP),
+        });
+      }
+    }
   } catch (e) {
     return json({ error: { message: "Upstream request failed: " + e.message } }, 502);
   }
@@ -74,6 +83,18 @@ export default async (request) => {
     },
   });
 };
+
+function callAnthropic(key, body) {
+  return fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify(body),
+  });
+}
 
 function safeEqual(a, b) {
   const x = Buffer.from(a);
