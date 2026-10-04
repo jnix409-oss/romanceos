@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Digital Maker AI Pack · Story OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #F3EEE6; --surface: #FFFDF8; --card: #FAF6EE; --ink: #1F1A15; --text: #2B241D;
+    --muted: #7A6E61; --border: #E6DCCB; --gold: #B8862B; --gold-soft: #F4E9D2;
+    --side: #1F1915; --ok: #2D8B7A; --warn: #B07A1F; --err: #B8342D;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: Nunito, system-ui, sans-serif; }
+  header { background: var(--side); color: #F5EDE0; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  header .brand { font-size: 10px; letter-spacing: 2px; color: #D7A55F; font-weight: 800; text-transform: uppercase; }
+  header h1 { margin: 2px 0 0; font-family: "Cormorant Garamond", serif; font-size: 24px; color: #FFF8EC; }
+  header a { color: #F5D49A; font-size: 13px; text-decoration: none; border: 1px solid rgba(215,165,95,.35); padding: 7px 12px; border-radius: 8px; }
+  main { max-width: 920px; margin: 0 auto; padding: 24px 16px 60px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .tab { border: 1px solid var(--border); background: var(--surface); color: var(--text); padding: 9px 16px; border-radius: 20px; font: 600 14px Nunito, sans-serif; cursor: pointer; }
+  .tab.active { background: var(--gold); border-color: var(--gold); color: #fff; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; margin-bottom: 18px; }
+  .kicker { color: var(--gold); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-weight: 800; margin-bottom: 4px; }
+  h2 { font-family: "Cormorant Garamond", serif; font-size: 24px; margin: 0 0 6px; color: var(--ink); }
+  p.help { color: var(--muted); font-size: 13px; margin: 0 0 14px; line-height: 1.5; }
+  label { display: block; font-weight: 700; font-size: 13px; margin: 14px 0 6px; }
+  textarea, input, select { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font: 14px Nunito, sans-serif; background: #fff; color: var(--text); }
+  textarea { min-height: 150px; resize: vertical; line-height: 1.5; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+  .source { display: flex; gap: 10px; flex-wrap: wrap; }
+  .source label { display: flex; align-items: center; gap: 8px; font-weight: 600; margin: 0; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); cursor: pointer; }
+  .source input { width: auto; }
+  .blueprint { margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; font-size: 13px; color: var(--muted); }
+  .blueprint b { color: var(--text); }
+  button.primary { margin-top: 18px; background: var(--gold); color: #fff; border: 0; border-radius: 26px; padding: 13px 26px; font: 800 14px Nunito, sans-serif; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
+  button.primary:disabled { opacity: .55; cursor: wait; }
+  .status { margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .status.err { color: var(--err); }
+  .summary { background: var(--gold-soft); border-left: 3px solid var(--gold); padding: 12px 14px; border-radius: 6px; font-weight: 700; margin-bottom: 14px; }
+  .step { border: 1px solid var(--border); border-radius: 12px; background: var(--card); padding: 14px 16px; margin-bottom: 12px; }
+  .step-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .step-num { color: var(--gold); font-weight: 800; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; }
+  .step-q { font-weight: 700; font-size: 14px; margin: 2px 0 8px; }
+  .answer { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; font-size: 14px; line-height: 1.5; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 8px; font-style: italic; }
+  .copy { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 12px; font: 700 12px Nunito, sans-serif; cursor: pointer; white-space: nowrap; }
+  .copy.done { background: var(--ok); color: #fff; border-color: var(--ok); }
+  .flags { margin-top: 10px; padding: 12px 14px; border: 1px solid #E8D3A8; background: #FBF4E4; border-radius: 10px; font-size: 13px; }
+  .review h3 { font-family: "Cormorant Garamond", serif; font-size: 20px; margin: 18px 0 6px; color: var(--ink); }
+  .review .fix { border-left: 3px solid var(--err); background: #FCEFEC; padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; }
+  .review .item { border: 1px solid var(--border); border-radius: 10px; background: var(--card); padding: 12px 14px; margin-bottom: 10px; }
+  .review .grade { float: right; font-weight: 800; font-size: 12px; padding: 2px 8px; border-radius: 10px; }
+  .g-strong { background: #E3F2EE; color: var(--ok); } .g-ok { background: #FAF0DC; color: var(--warn); } .g-weak { background: #FBE4E1; color: var(--err); }
+  .review .rewrite { background: #fff; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; margin-top: 6px; white-space: pre-wrap; font-size: 13px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <div class="brand">Private Edition · Story OS</div>
+    <h1>Digital Maker AI Pack</h1>
+  </div>
+  <a href="/">← Back to Story OS</a>
+</header>
+<main>
+  <div class="tabs">
+    <button class="tab active" data-tab="intake">1 · Intake pack</button>
+    <button class="tab" data-tab="review">2 · Review generated output</button>
+  </div>
+
+  <section id="tab-intake">
+    <div class="panel">
+      <div class="kicker">Google Flow intake</div>
+      <h2>Answers for Digital Maker AI, in form order</h2>
+      <p class="help">Select <b>Google Flow</b> in Digital Maker AI, then paste each answer below into the matching screen (2 of 10 through 10 of 10).</p>
+
+      <div class="source">
+        <label><input type="radio" name="src" value="blueprint" checked /> Use my current Story OS blueprint</label>
+        <label><input type="radio" name="src" value="paste" /> Paste a story or bible</label>
+      </div>
+      <div id="bp" class="blueprint"></div>
+      <div id="pasteWrap" class="hidden">
+        <label for="story">Story, premise or production bible</label>
+        <textarea id="story" placeholder="Paste your story idea, synopsis, or scene bible…"></textarea>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="length">Length</label>
+          <select id="length">
+            <option value="">Recommend for me</option>
+            <option>1 min, teaser</option>
+            <option>5 min, a short</option>
+            <option>10 min, a short film</option>
+            <option>20 min, a long short</option>
+            <option>30 min, a TV episode</option>
+            <option>45 min, a long episode</option>
+            <option>60 min, a feature</option>
+          </select>
+        </div>
+        <div>
+          <label for="budget">Flow credits available (optional)</label>
+          <input id="budget" type="number" min="0" placeholder="e.g. 1000" />
+        </div>
+      </div>
+      <label for="extra">Anything else to steer it (optional)</label>
+      <input id="extra" placeholder="e.g. vertical microdrama, keep it to 2 characters, Atlanta setting" />
+
+      <button class="primary" id="buildBtn">Build intake pack</button>
+      <div id="intakeStatus" class="status"></div>
+    </div>
+    <div id="intakeOut"></div>
+  </section>
+
+  <section id="tab-review" class="hidden">
+    <div class="panel">
+      <div class="kicker">Engagement review</div>
+      <h2>Check what Digital Maker AI generated</h2>
+      <p class="help">Paste the character sheets, script, dialogue, prompts or shot list. You'll get the biggest fix first, then a check on hook, pacing, dialogue, cliffhangers, payoff, consistency and credits, with specific rewrites.</p>
+      <label for="gen">Generated output</label>
+      <textarea id="gen" style="min-height:220px" placeholder="Paste Digital Maker AI's output here…"></textarea>
+      <button class="primary" id="reviewBtn">Review it</button>
+      <div id="reviewStatus" class="status"></div>
+    </div>
+    <div id="reviewOut" class="review"></div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const TOKEN_KEY = "romanceStoryOS:accessToken";
+  const PROJECT_KEY = "romanceStoryOS:project:v2";
+  const SETTINGS_KEY = "romanceStoryOS:settings:v1";
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const read = (k) => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } };
+
+  // ---------- tabs ----------
+  document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x === b));
+    $("tab-intake").classList.toggle("hidden", b.dataset.tab !== "intake");
+    $("tab-review").classList.toggle("hidden", b.dataset.tab !== "review");
+  }));
+
+  // ---------- blueprint ----------
+  const project = read(PROJECT_KEY);
+  const story = project && project.story;
+  function blueprintText(s) {
+    if (!s) return "";
+    const p = (c) => c ? `${c.name || ""}${c.occupation ? " (" + c.occupation + ")" : ""}${c.wound ? ". Wound: " + c.wound : ""}${c.externalGoal ? ". Wants: " + c.externalGoal : ""}` : "";
+    const lines = [
+      s.title && "Title: " + s.title,
+      s.hook && "Hook: " + s.hook,
+      s.readerPromise && "Promise: " + s.readerPromise,
+      s.heroine && "Heroine: " + p(s.heroine),
+      s.hero && "Hero: " + p(s.hero),
+      s.setting && "Setting: " + (typeof s.setting === "string" ? s.setting : JSON.stringify(s.setting)),
+      Array.isArray(s.relationshipArc) && "Arc: " + s.relationshipArc.join(" → "),
+    ].filter(Boolean);
+    let full = lines.join("\n");
+    const rest = JSON.stringify(s);
+    if (rest.length < 9000) full += "\n\nFull blueprint JSON:\n" + rest;
+    return full;
+  }
+  if (story) {
+    $("bp").innerHTML = `<b>${esc(story.title || "Untitled blueprint")}</b><br>${esc(story.hook || "")}`;
+  } else {
+    $("bp").innerHTML = "No blueprint saved yet. Generate one in Story OS first, or choose <b>Paste a story or bible</b>.";
+    document.querySelector('input[value="paste"]').checked = true;
+    $("pasteWrap").classList.remove("hidden");
+  }
+  document.querySelectorAll('input[name="src"]').forEach((r) => r.addEventListener("change", () => {
+    const paste = document.querySelector('input[name="src"]:checked').value === "paste";
+    $("pasteWrap").classList.toggle("hidden", !paste);
+    $("bp").classList.toggle("hidden", paste);
+  }));
+
+  // ---------- API (same proxy + password as Story OS) ----------
+  function token() {
+    let t = "";
+    try { t = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || ""; } catch {}
+    if (!t) {
+      t = (window.prompt("Private Story OS access token (the app password from STORY_OS_ACCESS_TOKEN).") || "").trim();
+      if (t) try { localStorage.setItem(TOKEN_KEY, t); sessionStorage.setItem(TOKEN_KEY, t); } catch {}
+    }
+    return t;
+  }
+  function model() {
+    const s = read(SETTINGS_KEY) || {};
+    const map = { "claude-opus-4-8": "claude-opus-5-5", "claude-fable-5": "claude-fable-5-1", "claude-sonnet-4-5-20250929": "claude-sonnet-5" };
+    return map[s.model] || s.model || "claude-sonnet-5";
+  }
+  async function ask(system, user, maxTokens) {
+    const res = await fetch("/api/anthropic/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Story-OS-Client": "flow-pack", "X-Story-OS-Access-Token": token() },
+      body: JSON.stringify({ model: model(), max_tokens: maxTokens, system, messages: [{ role: "user", content: user }], stream: true }),
+    });
+    if (res.status === 401) {
+      try { localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); } catch {}
+      throw new Error("Access token missing or incorrect. Click again and enter the STORY_OS_ACCESS_TOKEN password.");
+    }
+    if (!res.ok || !res.body) {
+      let msg = "API error (" + res.status + ")";
+      try { const t = await res.text(); msg = (JSON.parse(t).error || {}).message || msg; } catch {}
+      throw new Error(msg);
+    }
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "", text = "", stop = null, err = null;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) !== -1) {
+        const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        let evt; try { evt = JSON.parse(line.slice(5).trim()); } catch { continue; }
+        if (evt.type === "content_block_delta" && evt.delta && evt.delta.type === "text_delta") text += evt.delta.text;
+        else if (evt.type === "message_delta" && evt.delta && evt.delta.stop_reason) stop = evt.delta.stop_reason;
+        else if (evt.type === "error") err = (evt.error || {}).message || "Stream error";
+      }
+    }
+    if (err) throw new Error(err);
+    if (!text.trim()) throw new Error(stop === "max_tokens" ? "Ran out of room before writing. Try again." : "Empty response. Try again.");
+    return text;
+  }
+  function parseJSON(t) {
+    const s = t.indexOf("{"), e = t.lastIndexOf("}");
+    if (s < 0 || e < 0) throw new Error("Unexpected response format. Try again.");
+    return JSON.parse(t.slice(s, e + 1));
+  }
+
+  // ---------- intake pack ----------
+  const INTAKE_SYSTEM = `You prepare Jenn's intake answers for Digital Maker AI's "Building with Google Flow" form. Digital Maker AI then generates character sheets, scripts, dialogue and shots, so do NOT write scripts or shot prompts.
+
+Answer in the form's exact order and wording. Steps and allowed answers:
+2 "What is the movie called? (optional)": a strong, clickable, YouTube-first hook title.
+3 "How long is the movie?": exactly one of: "1 min, teaser" (8 shots, ~100 Flow credits); "5 min, a short" (38 shots, ~450 credits); "10 min, a short film" (75 shots, ~900 credits); "20 min, a long short" (150 shots, ~1,800 credits); "30 min, a TV episode" (225 shots, ~2,700 credits); "45 min, a long episode" (338 shots, ~4,050 credits); "60 min, a feature" (450 shots, ~5,400 credits before re-rolls; needs Google AI Ultra). If the user picked a length, use it. Otherwise recommend one from the story and credit budget; never exceed the budget.
+4 "What kind of film is it?": exactly one of Crime drama, Thriller, Sci-fi, Horror, Romance, Comedy, Action, Straight drama. Pick the dominant genre; carry the secondary tone into step 7.
+5 "Where and when is it set?": specific city/region, era, kinds of places, in the form "South East London, present day. Council estates, cafes, parks."
+6 "What is the movie about?": one or two lines, a hook understood in one sentence.
+7 "What is the main thing that happens?": the turn the story hangs on, a clear reversal or reveal, one to three sentences.
+8 "How many main characters?": exactly one of 2, 3, 4, 5, 6. Flow holds only 3 references per shot (two faces plus a location), so default to the fewest the story can survive on.
+9 "Name your characters and describe them (optional)": one per line, "Name: age range, personality, signature look/wardrobe". Include ethnicity/skin tone, build and hair when relevant, and give each a distinct, repeatable visual anchor (wardrobe item, hair, accessory). Give each a clear role and a want that conflicts with another character.
+10 "How many locations?": exactly one of "Decide for me", "2-3", "4-6", "7-10". Default "2-3" for 1-5 minute films.
+
+Use only facts from the provided story; where the story is silent, choose the strongest commercial default and say what you assumed in that step's note.
+
+Return strict JSON only, no markdown:
+{"summary": "Title · length · genre in one line",
+ "steps": [{"step": 2, "question": "<exact on-screen question>", "answer": "<paste-ready answer, no commentary>", "note": "<one-line reasoning or assumption, or empty>"}, ... steps 2 through 10 in order],
+ "flags": ["<credit or plan implications, consistency risks; empty array if none>"]}`;
+
+  $("buildBtn").addEventListener("click", async () => {
+    const usePaste = document.querySelector('input[name="src"]:checked').value === "paste";
+    const src = usePaste ? $("story").value.trim() : blueprintText(story);
+    if (!src) { $("intakeStatus").textContent = usePaste ? "Paste a story first." : "No blueprint saved yet."; $("intakeStatus").className = "status err"; return; }
+    const user = [
+      "STORY:\n" + src,
+      $("length").value && "LENGTH CHOSEN: " + $("length").value,
+      $("budget").value && "FLOW CREDITS AVAILABLE: " + $("budget").value,
+      $("extra").value.trim() && "DIRECTION: " + $("extra").value.trim(),
+    ].filter(Boolean).join("\n\n");
+    const btn = $("buildBtn"); btn.disabled = true;
+    $("intakeStatus").className = "status"; $("intakeStatus").textContent = "Building your intake pack…";
+    $("intakeOut").innerHTML = "";
+    try {
+      const data = parseJSON(await ask(INTAKE_SYSTEM, user, 4000));
+      renderIntake(data);
+      $("intakeStatus").textContent = "Done. Select Google Flow in Digital Maker AI, then copy each answer into its screen.";
+    } catch (e) {
+      $("intakeStatus").className = "status err"; $("intakeStatus").textContent = e.message;
+    } finally { btn.disabled = false; }
+  });
+
+  function renderIntake(d) {
+    const steps = Array.isArray(d.steps) ? d.steps : [];
+    let html = `<div class="panel"><div class="summary">${esc(d.summary || "")}</div>`;
+    html += `<div class="step"><div class="step-num">Before step 2</div><div class="step-q">Select Tool</div><div class="answer">Google Flow</div></div>`;
+    steps.forEach((s, i) => {
+      html += `<div class="step"><div class="step-head"><div><div class="step-num">Step ${esc(s.step)} of 10</div><div class="step-q">${esc(s.question)}</div></div><button class="copy" data-i="${i}">Copy</button></div><div class="answer">${esc(s.answer)}</div>${s.note ? `<div class="note">${esc(s.note)}</div>` : ""}</div>`;
+    });
+    const flags = (d.flags || []).filter(Boolean);
+    if (flags.length) html += `<div class="flags"><b>Heads up</b><ul>${flags.map((f) => `<li>${esc(f)}</li>`).join("")}</ul></div>`;
+    html += `</div>`;
+    $("intakeOut").innerHTML = html;
+    $("intakeOut").querySelectorAll(".copy").forEach((b) => b.addEventListener("click", async () => {
+      const s = steps[+b.dataset.i];
+      try { await navigator.clipboard.writeText(s.answer || ""); b.textContent = "Copied"; b.classList.add("done"); setTimeout(() => { b.textContent = "Copy"; b.classList.remove("done"); }, 1600); } catch { b.textContent = "Select & copy"; }
+    }));
+  }
+
+  // ---------- review ----------
+  const REVIEW_SYSTEM = `You review AI movie material that Digital Maker AI generated for Google Flow (character sheets, scripts, dialogue, prompts, shot lists) for engagement and bingeability. Give direct, practitioner-style pushback with specific rewrites, not general praise. Lead with the biggest fix.
+
+Check, in this order:
+1 Hook: does the first 3-5 seconds / first shot grab attention?
+2 Pacing: any slow stretches; does a new beat land roughly every 15-30 seconds?
+3 Dialogue: punchy, subtext, quotable lines; cut filler.
+4 Reveals and cliffhangers: does the end (and any episode break) leave a reason to watch the next one?
+5 Emotional payoff: satisfying turn and vindication for the audience.
+6 Consistency risks: shots needing more than 2-3 references (Flow holds 3 per shot), costume or look changes, location overload.
+7 Credit efficiency: shots to cut or merge to save re-rolls.
+
+Return strict JSON only, no markdown:
+{"biggestFix": {"problem": "...", "rewrite": "..."},
+ "checks": [{"area": "Hook", "grade": "strong|ok|weak", "finding": "...", "rewrites": ["specific replacement line or shot, quoting the original where useful"]}, ... all 7 areas],
+ "cuts": ["shot or line to cut/merge and why"]}`;
+
+  $("reviewBtn").addEventListener("click", async () => {
+    const txt = $("gen").value.trim();
+    if (!txt) { $("reviewStatus").className = "status err"; $("reviewStatus").textContent = "Paste the generated output first."; return; }
+    const btn = $("reviewBtn"); btn.disabled = true;
+    $("reviewStatus").className = "status"; $("reviewStatus").textContent = "Reviewing…";
+    $("reviewOut").innerHTML = "";
+    try {
+      const d = parseJSON(await ask(REVIEW_SYSTEM, "GENERATED OUTPUT:\n" + txt.slice(0, 60000), 6000));
+      let html = `<div class="panel">`;
+      if (d.biggestFix) html += `<div class="kicker">Biggest fix</div><div class="fix"><b>${esc(d.biggestFix.problem)}</b>${d.biggestFix.rewrite ? `<div class="rewrite">${esc(d.biggestFix.rewrite)}</div>` : ""}</div>`;
+      (d.checks || []).forEach((c) => {
+        const g = String(c.grade || "").toLowerCase();
+        html += `<div class="item"><span class="grade g-${g === "strong" ? "strong" : g === "weak" ? "weak" : "ok"}">${esc(c.grade || "")}</span><b>${esc(c.area)}</b><div style="margin-top:6px;font-size:14px">${esc(c.finding)}</div>${(c.rewrites || []).map((r) => `<div class="rewrite">${esc(r)}</div>`).join("")}</div>`;
+      });
+      if ((d.cuts || []).length) html += `<h3>Cut or merge to save credits</h3><ul>${d.cuts.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>`;
+      html += `</div>`;
+      $("reviewOut").innerHTML = html;
+      $("reviewStatus").textContent = "Done.";
+    } catch (e) {
+      $("reviewStatus").className = "status err"; $("reviewStatus").textContent = e.message;
+    } finally { btn.disabled = false; }
+  });
+})();
+</script>
+</body>
+</html>

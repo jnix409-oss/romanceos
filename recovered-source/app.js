@@ -74013,6 +74013,18 @@ var Xne = [
     ],
   },
   {
+    group: "movies",
+    label: "AI Movies",
+    items: [
+      {
+        id: "flowPack",
+        label: "Digital Maker Pack",
+        icon: "\u{1F3AC}",
+        href: "/flow-pack.html",
+      },
+    ],
+  },
+  {
     group: "intelligence",
     label: "Intelligence",
     items: [
@@ -74156,7 +74168,9 @@ function Zne({
                   return (0, f.jsxs)(
                     "button",
                     {
-                      onClick: () => !s && t(A.id),
+                      onClick: () =>
+                        !s &&
+                        (A.href ? (window.location.href = A.href) : t(A.id)),
                       disabled: s,
                       title: s ? "Unlocks after you generate a story blueprint" : void 0,
                       style: {
